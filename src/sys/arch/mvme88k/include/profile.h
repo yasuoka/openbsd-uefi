@@ -32,7 +32,7 @@
  * SUCH DAMAGE.
  *
  *	from: @(#)profile.h	8.1 (Berkeley) 6/11/93
- *	$Id: profile.h,v 1.5 1997/03/03 20:21:11 rahnds Exp $
+ *	$Id: profile.h,v 1.6 1997/03/25 17:07:37 rahnds Exp $
  */
 
 #define	_MCOUNT_DECL static inline void _mcount
@@ -42,7 +42,7 @@ extern void mcount() asm("mcount");					\
 void									\
 mcount()								\
 {									\
-	int selfret;							\
+	register int selfret;						\
 	register int callerret;						\
 	/*								\
 	 * find the return address for mcount,				\
@@ -50,7 +50,7 @@ mcount()								\
 	 *								\
 	 * selfret = ret pushed by mcount call				\
 	 */								\
-	asm volatile("st r1,%0" : "=m" (selfret));			\
+	asm volatile("or %0,r1,0" : "=r" (selfret));			\
 	/*								\
 	 * callerret = ret pushed by call into self.			\
 	 */								\
