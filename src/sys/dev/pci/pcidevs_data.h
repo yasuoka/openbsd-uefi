@@ -2,7 +2,7 @@
  * THIS FILE AUTOMATICALLY GENERATED.  DO NOT EDIT.
  *
  * generated from:
- *	OpenBSD: pcidevs,v 1.767 2004/09/25 18:40:27 grange Exp 
+ *	OpenBSD: pcidevs,v 1.769 2004/09/28 05:43:26 grange Exp 
  */
 /*	$NetBSD: pcidevs,v 1.30 1997/06/24 06:20:24 thorpej Exp $ 	*/
 
@@ -4031,6 +4031,10 @@ static const struct pci_known_product pci_known_products[] = {
 	    "Quad Serial",
 	},
 	{
+	    PCI_VENDOR_LAVA, PCI_PRODUCT_LAVA_LAVAPORT_2,
+	    "Serial",
+	},
+	{
 	    PCI_VENDOR_LAVA, PCI_PRODUCT_LAVA_LAVAPORT_0,
 	    "Serial",
 	},
@@ -5305,6 +5309,10 @@ static const struct pci_known_product pci_known_products[] = {
 	{
 	    PCI_VENDOR_NVIDIA, PCI_PRODUCT_NVIDIA_GEFORCEFXGO5200,
 	    "GeForce FX Go 5200",
+	},
+	{
+	    PCI_VENDOR_NVIDIA, PCI_PRODUCT_NVIDIA_GEFORCEFX5700LE,
+	    "GeForce FX 5700LE",
 	},
 	{
 	    PCI_VENDOR_OAKTECH, PCI_PRODUCT_OAKTECH_OTI1007,
@@ -7197,6 +7205,10 @@ static const struct pci_known_product pci_known_products[] = {
 	{
 	    PCI_VENDOR_VIATECH, PCI_PRODUCT_VIATECH_VT8377,
 	    "VT8377 PCI",
+	},
+	{
+	    PCI_VENDOR_VIATECH, PCI_PRODUCT_VIATECH_VT8378,
+	    "VT8378 PCI",
 	},
 	{
 	    PCI_VENDOR_VIATECH, PCI_PRODUCT_VIATECH_VT8237_ISA,
