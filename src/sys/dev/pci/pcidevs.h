@@ -2,7 +2,7 @@
  * THIS FILE AUTOMATICALLY GENERATED.  DO NOT EDIT.
  *
  * generated from:
- *	OpenBSD: pcidevs,v 1.766 2004/09/23 18:39:36 grange Exp 
+ *	OpenBSD: pcidevs,v 1.768 2004/09/25 18:43:33 grange Exp 
  */
 /*	$NetBSD: pcidevs,v 1.30 1997/06/24 06:20:24 thorpej Exp $ 	*/
 
@@ -220,8 +220,8 @@
 #define	PCI_VENDOR_TAMARACK	0x143d		/* Tamarack Microelectronics */
 #define	PCI_VENDOR_ASKEY	0x144f		/* Askey */
 #define	PCI_VENDOR_AVERMEDIA	0x1461		/* Avermedia */
-#define	PCI_VENDOR_OXFORD	0x14d2		/* Oxford */
 #define	PCI_VENDOR_AIRONET	0x14b9		/* Aironet */
+#define	PCI_VENDOR_OXFORD	0x14d2		/* Oxford */
 #define	PCI_VENDOR_AVLAB	0x14db		/* Avlab */
 #define	PCI_VENDOR_INVERTEX	0x14e1		/* Invertex */
 #define	PCI_VENDOR_BROADCOM	0x14e4		/* Broadcom */
@@ -1484,6 +1484,7 @@
 #define	PCI_PRODUCT_LAVA_QUATTRO_CD2	0x0121		/* Dual Serial */
 #define	PCI_PRODUCT_LAVA_OCTOPUS550_0	0x0180		/* Quad Serial */
 #define	PCI_PRODUCT_LAVA_OCTOPUS550_1	0x0181		/* Quad Serial */
+#define	PCI_PRODUCT_LAVA_LAVAPORT_2	0x0200		/* Serial */
 #define	PCI_PRODUCT_LAVA_LAVAPORT_0	0x0201		/* Serial */
 #define	PCI_PRODUCT_LAVA_LAVAPORT_1	0x0202		/* Serial */
 #define	PCI_PRODUCT_LAVA_650	0x0600		/* Serial */
