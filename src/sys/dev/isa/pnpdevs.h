@@ -2,7 +2,7 @@
  * THIS FILE AUTOMATICALLY GENERATED.  DO NOT EDIT.
  *
  * generated from:
- *	#	OpenBSD: pnpdevs,v 1.23 1998/10/21 00:56:58 deraadt Exp 
+ *	#	OpenBSD: pnpdevs,v 1.25 1998/10/28 17:56:00 deraadt Exp 
  */
 
 struct isapnp_knowndev isapnp_knowndevs[] = {
@@ -62,6 +62,8 @@ struct isapnp_knowndev isapnp_knowndevs[] = {
 	{ "USR0006", "pccom" },
 	{ "SUP1380", "com" },
 	{ "SUP1380", "pccom" },
+	{ "GVC5000", "com" },
+	{ "GVC5000", "pccom" },
 	{ "ADS7150", "sb" },
 	{ "ADS7180", "sb" },
 	{ "CTL0001", "sb" },
@@ -71,8 +73,10 @@ struct isapnp_knowndev isapnp_knowndevs[] = {
 	{ "CTL0044", "sb" },
 	{ "CTL0045", "sb" },
 	{ "@X@0001", "sb" },
+	{ "@@@1001", "ym" },
 	{ "YMH0021", "ym" },
 	{ "ESS1868", "sb" },
 	{ "SMC8416", "ed" },
+	{ "@P@1001", "joy" },
 	{ NULL, NULL, }
 };
