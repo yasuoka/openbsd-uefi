@@ -2,7 +2,7 @@
  * THIS FILE AUTOMATICALLY GENERATED.  DO NOT EDIT.
  *
  * generated from:
- *	OpenBSD: pcidevs,v 1.787 2004/10/30 00:35:28 deraadt Exp 
+ *	OpenBSD: pcidevs,v 1.789 2004/10/30 14:12:16 deraadt Exp 
  */
 /*	$NetBSD: pcidevs,v 1.30 1997/06/24 06:20:24 thorpej Exp $ 	*/
 
@@ -737,12 +737,12 @@
 #define	PCI_PRODUCT_AMCIRCUITS_LANAI	0x8043		/* Myrinet LANai */
 
 /* Atheros products */
-#define	PCI_PRODUCT_ATHEROS_AR5201	0x0007		/* AR5201 */
+#define	PCI_PRODUCT_ATHEROS_AR5210	0x0007		/* AR5210 */
 #define	PCI_PRODUCT_ATHEROS_AR5311	0x0011		/* AR5211 */
 #define	PCI_PRODUCT_ATHEROS_AR5211	0x0012		/* AR5211 */
 #define	PCI_PRODUCT_ATHEROS_AR5212	0x0013		/* AR5212 */
-#define	PCI_PRODUCT_ATHEROS_AR5201_AP	0x0207		/* AR5201 (Early) */
-#define	PCI_PRODUCT_ATHEROS_AR5201_DEFAULT	0x1107		/* AR5201 (no eeprom) */
+#define	PCI_PRODUCT_ATHEROS_AR5210_AP	0x0207		/* AR5210 (Early) */
+#define	PCI_PRODUCT_ATHEROS_AR5210_DEFAULT	0x1107		/* AR5210 (no eeprom) */
 #define	PCI_PRODUCT_ATHEROS_AR5212_DEFAULT	0x1113		/* AR5212 (no eeprom) */
 #define	PCI_PRODUCT_ATHEROS_AR5211_DEFAULT	0x1112		/* AR5211 (no eeprom) */
 #define	PCI_PRODUCT_ATHEROS_AR5212_FPGA	0xf013		/* AR5212 (emulation board) */
