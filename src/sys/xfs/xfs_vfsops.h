@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1995, 1996, 1997, 1998 Kungliga Tekniska Högskolan
+ * Copyright (c) 1995, 1996, 1997, 1998, 1999 Kungliga Tekniska Högskolan
  * (Royal Institute of Technology, Stockholm, Sweden).
  * All rights reserved.
  *
@@ -36,25 +36,42 @@
  * SUCH DAMAGE.
  */
 
-#include <xfs/xfs_deb.h>
-#include <xfs/xfs_debug.h>
+/* $Id: xfs_vfsops.h,v 1.1 1999/04/30 01:59:01 art Exp $ */
 
-/* $Id: xfs_deb.c,v 1.2 1999/04/30 01:59:00 art Exp $ */
+#ifndef _xfs_vfsops_h
+#define _xfs_vfsops_h
 
-/* X is on */
-#define X(y) y
-/* and x is off */
-#define x(y) 0
+int
+xfs_mount_common(struct mount *mp,
+		 const char *user_path,
+		 caddr_t user_data,
+		 struct nameidata *ndp,
+		 struct proc *p);
 
-unsigned int xfsdeb = (0   |
-	      x(XDEBDEV)   |
-	      x(XDEBMSG)   |
-	      x(XDEBDNLC)  |
-	      x(XDEBNODE)  |
-	      x(XDEBVNOPS) |
-	      x(XDEBVFOPS) |
-	      x(XDEBLKM)   |
-	      x(XDEBSYS)   |
-	      x(XDEBMEM)   |
-		       0
-);
+int
+xfs_unmount_common(struct mount *mp, int mntflags);
+
+int
+xfs_root_common(struct mount *mp,
+		struct vnode **vpp,
+		struct proc *proc,
+		struct ucred *cred);
+
+int
+xfs_fhlookup (struct proc *proc,
+	      fsid_t fsid,
+	      long fileid,
+	      long gen,
+	      struct vnode **vpp);
+
+int
+xfs_fhopen (struct proc *proc,
+	    fsid_t fsid,
+	    long fileid,
+	    long gen,
+	    int flags,
+	    register_t *retval);
+
+int make_dead_vnode(struct mount *mp, struct vnode **vpp);
+
+#endif				       /* _xfs_vfsops_h */

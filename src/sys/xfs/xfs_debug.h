@@ -1,28 +1,28 @@
 /*
- * Copyright (c) 1995, 1996, 1997, 1998 Kungliga Tekniska Högskolan
+ * Copyright (c) 1998 Kungliga Tekniska Högskolan
  * (Royal Institute of Technology, Stockholm, Sweden).
  * All rights reserved.
- *
+ * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
- *
+ * 
  * 1. Redistributions of source code must retain the above copyright
  *    notice, this list of conditions and the following disclaimer.
- *
+ * 
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- *
+ * 
  * 3. All advertising materials mentioning features or use of this software
  *    must display the following acknowledgement:
  *      This product includes software developed by the Kungliga Tekniska
  *      Högskolan and its contributors.
- *
+ * 
  * 4. Neither the name of the Institute nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
- *
+ * 
  * THIS SOFTWARE IS PROVIDED BY THE INSTITUTE AND CONTRIBUTORS ``AS IS'' AND
  * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -36,25 +36,30 @@
  * SUCH DAMAGE.
  */
 
-#include <xfs/xfs_deb.h>
-#include <xfs/xfs_debug.h>
+/* $Id: xfs_debug.h,v 1.1 1999/04/30 01:59:00 art Exp $ */
 
-/* $Id: xfs_deb.c,v 1.2 1999/04/30 01:59:00 art Exp $ */
+#ifndef __XFS_DEBUG_H
+#define __XFS_DEBUG_H
 
-/* X is on */
-#define X(y) y
-/* and x is off */
-#define x(y) 0
+/* 
+ * These are GLOBAL xfs debugging masks
+ *
+ *   Define HAVE_XDEB in your local xfs_deb.h if
+ *   you want your fs to handle the debugging flags.
+ */
 
-unsigned int xfsdeb = (0   |
-	      x(XDEBDEV)   |
-	      x(XDEBMSG)   |
-	      x(XDEBDNLC)  |
-	      x(XDEBNODE)  |
-	      x(XDEBVNOPS) |
-	      x(XDEBVFOPS) |
-	      x(XDEBLKM)   |
-	      x(XDEBSYS)   |
-	      x(XDEBMEM)   |
-		       0
-);
+/* Masks for the debug macro */
+#define XDEBDEV		0x00000001	/* device handling */
+#define XDEBMSG		0x00000002	/* message sending */
+#define XDEBDNLC	0x00000004	/* name cache */
+#define XDEBNODE	0x00000008	/* xfs nodes */
+#define XDEBVNOPS	0x00000010	/* vnode operations */
+#define XDEBVFOPS	0x00000020	/* vfs operations */
+#define XDEBLKM         0x00000040	/* LKM handling */
+#define XDEBSYS	        0x00000080	/* syscalls */
+#define XDEBMEM		0x00000100	/* memory allocation */
+#define XDEBREADDIR     0x00000200      /* readdir (linux) */
+#define XDEBLOCK	0x00000400	/* locking (linux) */
+#define XDEBCACHE       0x00000800      /* Cache handeling (linux) */
+
+#endif

@@ -36,25 +36,30 @@
  * SUCH DAMAGE.
  */
 
+#ifdef XFS_DEBUG
+#include <xfs/xfs_locl.h>
+#include <xfs/xfs_common.h>
 #include <xfs/xfs_deb.h>
-#include <xfs/xfs_debug.h>
 
-/* $Id: xfs_deb.c,v 1.2 1999/04/30 01:59:00 art Exp $ */
+RCSID("$Id: xfs_common-bsd.c,v 1.1 1999/04/30 01:58:59 art Exp $");
 
-/* X is on */
-#define X(y) y
-/* and x is off */
-#define x(y) 0
+static u_int xfs_allocs;
+static u_int xfs_frees;
 
-unsigned int xfsdeb = (0   |
-	      x(XDEBDEV)   |
-	      x(XDEBMSG)   |
-	      x(XDEBDNLC)  |
-	      x(XDEBNODE)  |
-	      x(XDEBVNOPS) |
-	      x(XDEBVFOPS) |
-	      x(XDEBLKM)   |
-	      x(XDEBSYS)   |
-	      x(XDEBMEM)   |
-		       0
-);
+void *
+xfs_alloc(u_int size)
+{
+    xfs_allocs++;
+    XFSDEB(XDEBMEM, ("xfs_alloc: xfs_allocs - xfs_frees %d\n", 
+		     xfs_allocs - xfs_frees));
+
+    return malloc(size, M_TEMP, M_WAITOK); /* What kind? */
+}
+
+void
+xfs_free(void *ptr, u_int size)
+{
+    xfs_frees++;
+    free(ptr, M_TEMP);
+}
+#endif
