@@ -2,7 +2,7 @@
  * THIS FILE AUTOMATICALLY GENERATED.  DO NOT EDIT.
  *
  * generated from:
- *	OpenBSD: pcidevs,v 1.42 1998/03/28 18:36:41 deraadt Exp 
+ *	OpenBSD: pcidevs,v 1.44 1998/04/02 20:16:32 deraadt Exp 
  */
 
 /*	$NetBSD: pcidevs,v 1.30 1997/06/24 06:20:24 thorpej Exp $ 	*/
@@ -531,6 +531,7 @@
 #define	PCI_PRODUCT_3COM_3C900COMBO	0x9001		/* 3c900 10Mbps-Combo */
 #define	PCI_PRODUCT_3COM_3C905TX	0x9050		/* 3c905 100Base-TX */
 #define	PCI_PRODUCT_3COM_3C905T4	0x9051		/* 3c905 100Base-T4 */
+#define	PCI_PRODUCT_3COM_3C905B	0x9055		/* 3c905B 100Base-T4 */
 
 /* 3D Labs products */
 #define	PCI_PRODUCT_3DLABS_300SX	0x0001		/* 300SX (Glint) */
@@ -933,7 +934,16 @@
 #define	PCI_PRODUCT_SIS_85C503	0x0008		/* 85C503 */
 #define	PCI_PRODUCT_SIS_85C501	0x0406		/* 85C501 */
 #define	PCI_PRODUCT_SIS_85C496	0x0496		/* 85C496 */
+#define	PCI_PRODUCT_SIS_85C596	0x0496		/* 85C596 */
 #define	PCI_PRODUCT_SIS_85C601	0x0601		/* 85C601 */
+#define	PCI_PRODUCT_SIS_5511	0x5511		/* 5511 */
+#define	PCI_PRODUCT_SIS_5513	0x5512		/* 5512 */
+#define	PCI_PRODUCT_SIS_5513	0x5513		/* 5513 */
+#define	PCI_PRODUCT_SIS_5581	0x5581		/* 5581 */
+#define	PCI_PRODUCT_SIS_5582	0x5582		/* 5582 */
+#define	PCI_PRODUCT_SIS_5596	0x5596		/* 5596 */
+#define	PCI_PRODUCT_SIS_6204	0x6204		/* 6204 */
+#define	PCI_PRODUCT_SIS_6205	0x6205		/* 6205 */
 
 /* SMC products */
 #define	PCI_PRODUCT_SMC_37C665	0x1000		/* FDC 37C665 */
