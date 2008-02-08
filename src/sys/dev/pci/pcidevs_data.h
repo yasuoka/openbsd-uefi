@@ -2,7 +2,7 @@
  * THIS FILE AUTOMATICALLY GENERATED.  DO NOT EDIT.
  *
  * generated from:
- *	OpenBSD: pcidevs,v 1.1317 2008/02/02 03:21:46 brad Exp 
+ *	OpenBSD: pcidevs,v 1.1319 2008/02/08 12:38:59 kettenis Exp 
  */
 
 /*	$NetBSD: pcidevs,v 1.30 1997/06/24 06:20:24 thorpej Exp $	*/
@@ -5676,8 +5676,8 @@ static const struct pci_known_product pci_known_products[] = {
 	    "82801BAM LPC",
 	},
 	{
-	    PCI_VENDOR_INTEL, PCI_PRODUCT_INTEL_82801BA_AGP,
-	    "82801BA AGP",
+	    PCI_VENDOR_INTEL, PCI_PRODUCT_INTEL_82801BA_HPB,
+	    "82801BA Hub-to-PCI",
 	},
 	{
 	    PCI_VENDOR_INTEL, PCI_PRODUCT_INTEL_82801E_LPC,
@@ -13590,6 +13590,10 @@ static const struct pci_known_product pci_known_products[] = {
 	{
 	    PCI_VENDOR_VIATECH, PCI_PRODUCT_VIATECH_P4M900_3,
 	    "P4M900 Host",
+	},
+	{
+	    PCI_VENDOR_VIATECH, PCI_PRODUCT_VIATECH_VT8237S_ISA,
+	    "VT8237S ISA",
 	},
 	{
 	    PCI_VENDOR_VIATECH, PCI_PRODUCT_VIATECH_VT8237A_PPB_1,
