@@ -24,12 +24,11 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/cdefs.h>
-__FBSDID("$FreeBSD: head/sys/boot/common/self_reloc.c 282727 2015-05-10 13:24:26Z ian $");
-
 #include <sys/types.h>
-#include <elf.h>
-#include <bootstrap.h>
+
+#include <machine/reloc.h>
+#include <sys/exec_elf.h>
+#include <efi.h>
 
 #if defined(__aarch64__)
 #define	ElfW_Rel	Elf64_Rela
