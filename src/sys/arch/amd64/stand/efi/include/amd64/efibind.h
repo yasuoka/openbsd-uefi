@@ -28,7 +28,7 @@ Revision History
 #pragma pack()
 
 
-#ifdef __FreeBSD__
+#if defined(__FreeBSD__) || defined(__OpenBSD__)
 #include <sys/stdint.h>
 #else
 //
@@ -249,7 +249,7 @@ typedef uint64_t   UINTN;
 
 #endif // EFI_FW_NT 
 
-#ifdef __FreeBSD__
+#if defined(__FreeBSD__) || defined(__OpenBSD__)
 #define INTERFACE_DECL(x) struct x
 #else
 //
