@@ -239,6 +239,7 @@ attach	ipmi at mainbus
 #
 include "dev/pv/files.pv"
 
+file dev/efifb.c
 #
 # device major numbers
 #

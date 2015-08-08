@@ -71,8 +71,10 @@
 #if NWSKBD > 0
 #include <dev/wscons/wskbdvar.h>
 #endif
+#include <dev/efifbreg.h>
+#include <machine/biosvar.h>
 
-void	wscn_video_init(void);
+int	wscn_video_init(void);
 void	wscn_input_init(int);
 
 cons_decl(ws);
@@ -104,10 +106,11 @@ wscninit(struct consdev *cp)
 
 	if (initted)
 		return;
-	initted = 1;
 
-	wscn_video_init();
-	wscn_input_init(0);
+	if (wscn_video_init() == 0) {
+		initted = 1;
+		wscn_input_init(0);
+	}
 }
 
 void
@@ -131,17 +134,26 @@ wscnpollc(dev_t dev, int on)
 /*
  * Configure the display part of the console.
  */
-void
+int
 wscn_video_init()
 {
+	extern bios_efifb_t *bios_efifb;
+	if (bios_efifb != NULL) {
+		if (efifb_cnattach(0xffffff0000000000 | bios_efifb->fb_addr, bios_efifb->fb_size,
+		    bios_efifb->fb_height, bios_efifb->fb_width, bios_efifb->fb_depth,
+		    bios_efifb->fb_pixpsl)
+		    == 0)
+			return (0);
+	}
 #if (NVGA > 0)
 	if (vga_cnattach(X86_BUS_SPACE_IO, X86_BUS_SPACE_MEM, -1, 1) == 0)
-		return;
+		return (0);
 #endif
 #if (NPCDISPLAY > 0)
 	if (pcdisplay_cnattach(X86_BUS_SPACE_IO, X86_BUS_SPACE_MEM) == 0)
-		return;
+		return (0);
 #endif
+	return (-1);
 }
 
 /*

@@ -244,6 +244,7 @@ void getbootinfo(char *, int);
 bios_diskinfo_t	*bios_diskinfo;
 bios_memmap_t	*bios_memmap;
 u_int32_t	bios_cksumlen;
+bios_efifb_t	*bios_efifb;
 
 /*
  * Size of memory segments, before any memory is stolen.
@@ -1280,6 +1281,7 @@ init_x86_64(paddr_t first_avail)
 			panic("boot args too big");
 
 		getbootinfo(bootinfo, bootinfo_size);
+		cninit();	/* try again for frame buffer */
 	} else
 		panic("invalid /boot");
 
@@ -1895,6 +1897,10 @@ getbootinfo(char *bootinfo, int bootinfo_size)
 			    sizeof(sr_bootkey));
 #endif
 			explicit_bzero(bios_bootsr, sizeof(bios_bootsr_t));
+			break;
+
+		case BOOTARG_EFIFB:
+			bios_efifb = (bios_efifb_t *)q->ba_arg;
 			break;
 
 		default:
