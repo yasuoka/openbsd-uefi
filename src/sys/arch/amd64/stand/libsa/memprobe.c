@@ -36,7 +36,6 @@
 
 u_int cnvmem, extmem;		/* XXX - compatibility */
 
-
 /*
  * Check gateA20
  *
@@ -232,7 +231,7 @@ addrprobe(u_int kloc)
 	u_int save[nitems(addrprobe_pat)];
 
 	/* Get location */
-	loc = (int *)(kloc * 1024);
+	loc = (int *)(intptr_t)(kloc * 1024);
 
 	save[0] = *loc;
 	/* Probe address */
