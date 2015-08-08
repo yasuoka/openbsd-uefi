@@ -37,6 +37,9 @@
 #include "libsa.h"
 #include <cmd.h>
 
+#ifdef EFIBOOT
+#include "efiboot.h"
+#endif
 
 extern const char version[];
 
@@ -54,6 +57,10 @@ const struct cmd_table cmd_machine[] = {
 	{ "comaddr",	CMDT_CMD, Xcomaddr },
 	{ "diskinfo",	CMDT_CMD, Xdiskinfo },
 	{ "memory",	CMDT_CMD, Xmemory },
+#ifdef EFIBOOT
+	{ "video",	CMDT_CMD, Xvideo_efi },
+	{ "exit",	CMDT_CMD, Xexit_efi },
+#endif
 #ifdef DEBUG
 	{ "regs",	CMDT_CMD, Xregs },
 #endif

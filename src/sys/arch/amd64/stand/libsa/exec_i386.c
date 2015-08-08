@@ -43,6 +43,10 @@
 #include "softraid.h"
 #endif
 
+#ifdef EFIBOOT
+#include "efiboot.h"
+#endif
+
 typedef void (*startfuncp)(int, int, int, int, int, int, int, int)
     __attribute__ ((noreturn));
 
@@ -69,6 +73,11 @@ run_loadfile(u_long *marks, int howto)
 	struct sr_boot_volume *bv;
 #endif
 
+#ifdef EFIBOOT
+	if ((av = alloc(ac)) == NULL)
+		panic("alloc for bootarg");
+	efifb_probe();
+#endif
 	if (sa_cleanup != NULL)
 		(*sa_cleanup)();
 
@@ -107,7 +116,11 @@ run_loadfile(u_long *marks, int howto)
 	/* Pass memory map to the kernel */
 	mem_pass();
 
-	makebootargs(av, &ac);
+	/*
+	 * This code may be used both for 64bit and 32bit.  Make sure the
+	 * bootarg is 32bit always on even on amd64.
+	 */
+	makebootargs32(av, &ac);
 
 	entry = marks[MARK_ENTRY] & 0x0fffffff;
 
@@ -115,8 +128,14 @@ run_loadfile(u_long *marks, int howto)
 	    ((int *)entry)[0], ((int *)entry)[1],
 	    ((int *)entry)[2], ((int *)entry)[3]);
 
+#ifdef EFIBOOT
+	efi_cleanup();
+	(*run_i386)((u_long)run_i386, entry, howto, bootdev, BOOTARG_APIVER,
+	    marks[MARK_END], extmem, cnvmem, ac, (int)av);
+#else
 	/* stack and the gung is ok at this point, so, no need for asm setup */
 	(*(startfuncp)entry)(howto, bootdev, BOOTARG_APIVER, marks[MARK_END],
 	    extmem, cnvmem, ac, (int)av);
+#endif
 	/* not reached */
 }

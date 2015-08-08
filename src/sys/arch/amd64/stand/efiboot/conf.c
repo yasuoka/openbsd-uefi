@@ -28,19 +28,10 @@
 
 #include <sys/param.h>
 #include <sys/types.h>
-#include <netinet/in.h>
 #include <libsa.h>
 #include <lib/libsa/ufs.h>
-#ifdef notdef
-#include <lib/libsa/cd9660.h>
-#include <lib/libsa/fat.h>
-#include <lib/libsa/nfs.h>
-#include <lib/libsa/tftp.h>
-#include <lib/libsa/netif.h>
-#endif
-#include <lib/libsa/unixdev.h>
-#include <biosdev.h>
 #include <dev/cons.h>
+#include "efiboot.h"
 
 const char version[] = "3.28";
 int	debug = 1;
@@ -50,15 +41,15 @@ void (*sa_cleanup)(void) = NULL;
 
 
 void (*i386_probe1[])(void) = {
-	gateA20on, cninit, memprobe
+	efi_memprobe
 };
 void (*i386_probe2[])(void) = {
- 	diskprobe
+	efip_probe
 };
 
 struct i386_boot_probes probe_list[] = {
-	{ "probing", i386_probe1, nitems(i386_probe1) },
-	{ "disk",    i386_probe2, nitems(i386_probe2) }
+	{ "probing",  i386_probe1, nitems(i386_probe1) },
+	{ "disk",     i386_probe2, nitems(i386_probe2) }
 };
 int nibprobes = nitems(probe_list);
 
@@ -78,7 +69,7 @@ struct fs_ops file_system[] = {
 int nfsys = nitems(file_system);
 
 struct devsw	devsw[] = {
-	{ "BIOS", biosstrategy, biosopen, biosclose, biosioctl },
+	{ "EFI", efip_strategy, efip_open, efip_close, efip_ioctl },
 #if 0
 	{ "TFTP", tftpstrategy, tftpopen, tftpclose, tftpioctl },
 #endif
@@ -86,9 +77,7 @@ struct devsw	devsw[] = {
 int ndevs = nitems(devsw);
 
 struct consdev constab[] = {
-	{ pc_probe, pc_init, pc_getc, pc_putc },
-	{ com_probe, com_init, com_getc, com_putc },
+	{ efi_cons_probe, efi_cons_init, efi_cons_getc, efi_cons_putc },
 	{ NULL }
 };
 struct consdev *cn_tab = constab;
-

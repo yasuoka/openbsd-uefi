@@ -55,4 +55,5 @@ int	mdrandom(char *buf, size_t buflen);
 #ifdef _STANDALONE
 void addbootarg(int, size_t, void *);
 void makebootargs(caddr_t, size_t *);
+void makebootargs32(caddr_t, size_t *);
 #endif /* _STANDALONE */
