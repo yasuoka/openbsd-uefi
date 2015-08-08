@@ -6,7 +6,6 @@ Current Status
 
 - Start booting on VAIO Z VJZ13A1D
 - Frame buffer console is available
-- ACPI doesn't work yet.  But it will available soon.
 
 
 How to play
