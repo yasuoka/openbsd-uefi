@@ -47,6 +47,7 @@ static void	 eif_memprobe_internal(void);
 static void	 efi_video_init(void);
 static void	 efi_video_reset(void);
 static void	 hexdump(u_char *, int) __unused;
+static void	 efi_makebootarg_efifb(void);
 
 void (*run_i386)(u_long, u_long, int, int, int, int, int, int, int, int)
     __attribute__ ((noreturn));
@@ -338,9 +339,8 @@ efi_cons_getshifts(dev_t dev)
 	return (0);
 }
 
-bios_efifb_t			 bios_efifb;
-void
-efifb_probe(void)
+static void
+efi_makebootarg_efifb(void)
 {
 	EFI_STATUS			 status;
 	EFI_GRAPHICS_OUTPUT		*gop;
@@ -653,8 +653,6 @@ efip_probe(void)
 /***********************************************************************
  * Commands
  ***********************************************************************/
-int Xexit(void);
-
 int
 Xexit_efi(void)
 {
@@ -685,6 +683,11 @@ Xvideo_efi(void)
 	return (0);
 }
 
+static EFI_GUID acpi_guid = ACPI_TABLE_GUID;
+static EFI_GUID acpi_20_guid = ACPI_20_TABLE_GUID;
+static EFI_GUID smbios_guid = SMBIOS_TABLE_GUID;
+
+#define	eficmp(_a, _b)	memcmp((_a), (_b), sizeof(EFI_GUID))
 
 void dump_diskinfo(void) { }
 int com_addr;
@@ -731,4 +734,29 @@ hexdump(u_char *p, int len)
 	}
 	if (i % 16 != 0)
 		printf("\n");
+}
+
+void
+efi_makebootargs(void)
+{
+	bios_efiinfo_t	 ei;
+	int		 i;
+
+	for (i = 0; i < ST->NumberOfTableEntries; i++) {
+		if (eficmp(&acpi_guid,
+		    &ST->ConfigurationTable[i].VendorGuid) == 0)
+			ei.config_acpi = (intptr_t)
+			    ST->ConfigurationTable[i].VendorTable;
+		else if (eficmp(&acpi_20_guid,
+		    &ST->ConfigurationTable[i].VendorGuid) == 0)
+			ei.config_acpi_20 = (intptr_t)
+			    ST->ConfigurationTable[i].VendorTable;
+		else if (eficmp(&smbios_guid,
+		    &ST->ConfigurationTable[i].VendorGuid) == 0)
+			ei.config_smbios = (intptr_t)
+			    ST->ConfigurationTable[i].VendorTable;
+	}
+	addbootarg(BOOTARG_EFIINFO, sizeof(ei), &ei);
+
+	efi_makebootarg_efifb();
 }

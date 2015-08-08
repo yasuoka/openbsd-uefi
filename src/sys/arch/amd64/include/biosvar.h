@@ -200,6 +200,12 @@ typedef struct _bios_efifb {
 	uint64_t	fb_pixpsl;	/* pixels per scan line */
 } __packed bios_efifb_t;
 
+#define	BOOTARG_EFIINFO 12
+typedef struct _bios_efiinfo {
+	uint64_t	config_acpi;
+	uint64_t	config_acpi_20;
+	uint64_t	config_smbios;
+} __packed bios_efiinfo_t;
 #if defined(_KERNEL) || defined (_STANDALONE)
 
 #ifdef _LOCORE

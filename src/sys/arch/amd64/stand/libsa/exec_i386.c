@@ -76,7 +76,7 @@ run_loadfile(u_long *marks, int howto)
 #ifdef EFIBOOT
 	if ((av = alloc(ac)) == NULL)
 		panic("alloc for bootarg");
-	efifb_probe();
+	efi_makebootargs();
 #endif
 	if (sa_cleanup != NULL)
 		(*sa_cleanup)();

@@ -19,7 +19,6 @@
 void	 efi_cleanup(void);
 void	 efi_cons_probe (struct consdev *);
 void	 efi_memprobe (void);
-void	 efifb_probe (void);
 void	 efi_cons_init (struct consdev *);
 int	 efi_cons_getc (dev_t);
 void	 efi_cons_putc (dev_t, int);
@@ -31,6 +30,7 @@ int	 efip_ioctl (struct open_file *, u_long, void *);
 void	 efip_probe (void);
 int	 Xvideo_efi(void);
 int	 Xexit_efi(void);
+void	 efi_makebootargs(void);
 
 extern void (*run_i386)(u_long, u_long, int, int, int, int, int, int, int, int)
     __attribute__ ((noreturn));
