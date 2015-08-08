@@ -84,6 +84,34 @@ bios_match(struct device *parent, void *match , void *aux)
 	return 1;
 }
 
+static struct smbhdr *
+bios_find(u_int8_t *p)
+{
+	struct smbhdr * hdr = (struct smbhdr *)p;
+	u_int8_t chksum;
+	int i;
+
+	if (hdr->sig != SMBIOS_SIGNATURE)
+		return (NULL);
+	i = hdr->len;
+	for (chksum = 0; i--; chksum += p[i])
+		;
+	if (chksum != 0)
+		return (NULL);
+	p += 0x10;
+	if (p[0] != '_' && p[1] != 'D' && p[2] != 'M' && p[3] != 'I' &&
+	    p[4] != '_')
+		return (NULL);
+	for (chksum = 0, i = 0xf; i--; chksum += p[i])
+		;
+	if (chksum != 0)
+		return (NULL);
+	if (hdr->sig != SMBIOS_SIGNATURE)
+		return (NULL);
+
+	return (hdr);
+}
+
 void
 bios_attach(struct device *parent, struct device *self, void *aux)
 {
@@ -95,35 +123,28 @@ bios_attach(struct device *parent, struct device *self, void *aux)
 	paddr_t pa, end;
 	u_int8_t *p;
 	int smbiosrev = 0;
+	struct smbhdr *hdr = NULL;
+	extern bios_efiinfo_t	*bios_efiinfo;
 
-	/* see if we have SMBIOS extentions */
-	for (p = ISA_HOLE_VADDR(SMBIOS_START);
-	    p < (u_int8_t *)ISA_HOLE_VADDR(SMBIOS_END); p+= 16) {
-		struct smbhdr * hdr = (struct smbhdr *)p;
-		u_int8_t chksum;
-		int i;
+	if (bios_efiinfo != NULL && bios_efiinfo->config_smbios != 0)
+		hdr = bios_find(PMAP_DIRECT_MAP((u_int8_t *)bios_efiinfo->config_smbios));
 
-		if (hdr->sig != SMBIOS_SIGNATURE)
-			continue;
-		i = hdr->len;
-		for (chksum = 0; i--; chksum += p[i])
-			;
-		if (chksum != 0)
-			continue;
-		p += 0x10;
-		if (p[0] != '_' && p[1] != 'D' && p[2] != 'M' &&
-		    p[3] != 'I' && p[4] != '_')
-			continue;
-		for (chksum = 0, i = 0xf; i--; chksum += p[i])
-			;
-		if (chksum != 0)
-			continue;
+	if (hdr == NULL) {
+		/* see if we have SMBIOS extentions */
+		for (p = ISA_HOLE_VADDR(SMBIOS_START);
+		    p < (u_int8_t *)ISA_HOLE_VADDR(SMBIOS_END); p+= 16) {
+			hdr = bios_find(p);
+			if (hdr == NULL)
+				continue;
+		}
+	}
 
+	if (hdr != NULL) {
 		pa = trunc_page(hdr->addr);
 		end = round_page(hdr->addr + hdr->size);
 		va = uvm_km_valloc(kernel_map, end-pa);
 		if (va == 0)
-			break;
+			goto out;
 
 		smbios_entry.addr = (u_int8_t *)(va + (hdr->addr & PGOFSET));
 		smbios_entry.len = hdr->size;
@@ -159,8 +180,8 @@ bios_attach(struct device *parent, struct device *self, void *aux)
 		}
 
 		smbios_info(sc->sc_dev.dv_xname);
-		break;
 	}
+out:
 	printf("\n");
 
 	/* No SMBIOS extensions, go looking for Soekris comBIOS */
@@ -198,14 +219,22 @@ bios_attach(struct device *parent, struct device *self, void *aux)
 
 #if NACPI > 0
 	{
-		struct bios_attach_args ba;
+		int			 i;
+		struct bios_attach_args  ba;
+		uint64_t		 paddrs[2];
 
 		memset(&ba, 0, sizeof(ba));
 		ba.ba_name = "acpi";
 		ba.ba_iot = X86_BUS_SPACE_IO;
 		ba.ba_memt = X86_BUS_SPACE_MEM;
 
-		config_found(self, &ba, bios_print);
+		paddrs[0] = bios_efiinfo->config_acpi_20;
+		paddrs[1] = bios_efiinfo->config_acpi;
+		for (i = 0; i < nitems(paddrs); i++) {
+			ba.ba_acpipbase = paddrs[i];
+			if (config_found(self, &ba, bios_print) != NULL)
+				break;
+		}
 	}
 #endif
 
