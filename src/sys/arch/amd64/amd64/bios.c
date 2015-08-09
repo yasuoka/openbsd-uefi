@@ -127,7 +127,8 @@ bios_attach(struct device *parent, struct device *self, void *aux)
 	extern bios_efiinfo_t	*bios_efiinfo;
 
 	if (bios_efiinfo != NULL && bios_efiinfo->config_smbios != 0)
-		hdr = bios_find(PMAP_DIRECT_MAP((u_int8_t *)bios_efiinfo->config_smbios));
+		hdr = bios_find(PMAP_DIRECT_MAP(
+		    (u_int8_t *)bios_efiinfo->config_smbios));
 
 	if (hdr == NULL) {
 		/* see if we have SMBIOS extentions */
