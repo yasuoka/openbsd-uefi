@@ -326,6 +326,7 @@ struct wsmouse_calibcoords {
 #define		WSDISPLAY_TYPE_LIGHT	68	/* SGI Light */
 #define		WSDISPLAY_TYPE_INTELDRM	69	/* Intel KMS framebuffer */
 #define		WSDISPLAY_TYPE_RADEONDRM 70	/* ATI Radeon KMS framebuffer */
+#define		WSDISPLAY_TYPE_EFIFB	71	/* EFI framebuffer */
 
 /* Basic display information.  Not applicable to all display types. */
 struct wsdisplay_fbinfo {

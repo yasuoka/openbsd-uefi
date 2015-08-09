@@ -49,6 +49,7 @@
 #include "bios.h"
 #include "mpbios.h"
 #include "pvbus.h"
+#include "efifb.h"
 
 #include <machine/cpuvar.h>
 #include <machine/i82093var.h>
@@ -229,6 +230,10 @@ mainbus_attach(struct device *parent, struct device *self, void *aux)
 #if NISA > 0
 	if (isa_has_been_seen == 0)
 		config_found(self, &mba_iba, mainbus_print);
+#endif
+#if NEFIFB > 0
+	mba.mba_busname = "efifb";
+	config_found(self, &mba, mainbus_print);
 #endif
 
 }

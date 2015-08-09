@@ -66,6 +66,9 @@ mpbios0		at bios0
 
 ipmi0	at mainbus? disable	# IPMI
 
+efifb0	at mainbus?
+wsdisplay0	at efifb? console 1
+
 vmt0	at pvbus?		# VMware Tools
 
 option		PCIVERBOSE

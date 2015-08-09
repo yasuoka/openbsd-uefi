@@ -235,11 +235,17 @@ include "dev/onewire/files.onewire"
 attach	ipmi at mainbus
 
 #
+# FB
+#
+device efifb: wsemuldisplaydev, rasops16, rasops8, rasops4
+attach efifb at mainbus
+file arch/amd64/amd64/efifb.c			efifb needs-flag
+
+#
 # Paravirtual device bus
 #
 include "dev/pv/files.pv"
 
-file dev/efifb.c
 #
 # device major numbers
 #
