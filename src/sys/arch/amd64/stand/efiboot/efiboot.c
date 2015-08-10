@@ -687,7 +687,7 @@ static EFI_GUID acpi_guid = ACPI_TABLE_GUID;
 static EFI_GUID acpi_20_guid = ACPI_20_TABLE_GUID;
 static EFI_GUID smbios_guid = SMBIOS_TABLE_GUID;
 
-#define	eficmp(_a, _b)	memcmp((_a), (_b), sizeof(EFI_GUID))
+#define	efi_guidcmp(_a, _b)	memcmp((_a), (_b), sizeof(EFI_GUID))
 
 void dump_diskinfo(void) { }
 int com_addr;
@@ -743,7 +743,7 @@ efi_makebootargs(void)
 	int		 i;
 
 	for (i = 0; i < ST->NumberOfTableEntries; i++) {
-		if (eficmp(&acpi_guid,
+		if (efi_guidcmp(&acpi_guid,
 		    &ST->ConfigurationTable[i].VendorGuid) == 0)
 			ei.config_acpi = (intptr_t)
 			    ST->ConfigurationTable[i].VendorTable;
@@ -751,7 +751,7 @@ efi_makebootargs(void)
 		    &ST->ConfigurationTable[i].VendorGuid) == 0)
 			ei.config_acpi_20 = (intptr_t)
 			    ST->ConfigurationTable[i].VendorTable;
-		else if (eficmp(&smbios_guid,
+		else if (efi_guidcmp(&smbios_guid,
 		    &ST->ConfigurationTable[i].VendorGuid) == 0)
 			ei.config_smbios = (intptr_t)
 			    ST->ConfigurationTable[i].VendorTable;
