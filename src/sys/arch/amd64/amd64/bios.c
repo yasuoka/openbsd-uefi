@@ -220,22 +220,28 @@ out:
 
 #if NACPI > 0
 	{
-		int			 i;
-		struct bios_attach_args  ba;
-		uint64_t		 paddrs[2];
+		int acpi_found = 0;
+		struct bios_attach_args ba;
 
 		memset(&ba, 0, sizeof(ba));
 		ba.ba_name = "acpi";
 		ba.ba_iot = X86_BUS_SPACE_IO;
 		ba.ba_memt = X86_BUS_SPACE_MEM;
 
-		paddrs[0] = bios_efiinfo->config_acpi_20;
-		paddrs[1] = bios_efiinfo->config_acpi;
-		for (i = 0; i < nitems(paddrs); i++) {
-			ba.ba_acpipbase = paddrs[i];
+		if (bios_efiinfo != NULL) {
+			ba.ba_acpipbase = bios_efiinfo->config_acpi_20;
 			if (config_found(self, &ba, bios_print) != NULL)
-				break;
+				acpi_found = 1;
+			if (!acpi_found) {
+				ba.ba_acpipbase = bios_efiinfo->config_acpi;
+				if (config_found(self, &ba, bios_print)
+				    != NULL)
+					acpi_found = 1;
+			}
+			bios_efiinfo->config_acpi = 0;
 		}
+		if (!acpi_found)
+			config_found(self, &ba, bios_print);
 	}
 #endif
 
