@@ -244,7 +244,6 @@ void getbootinfo(char *, int);
 bios_diskinfo_t	*bios_diskinfo;
 bios_memmap_t	*bios_memmap;
 u_int32_t	bios_cksumlen;
-bios_efifb_t	*bios_efifb;
 bios_efiinfo_t	*bios_efiinfo;
 
 /*
@@ -1898,10 +1897,6 @@ getbootinfo(char *bootinfo, int bootinfo_size)
 			    sizeof(sr_bootkey));
 #endif
 			explicit_bzero(bios_bootsr, sizeof(bios_bootsr_t));
-			break;
-
-		case BOOTARG_EFIFB:
-			bios_efifb = (bios_efifb_t *)q->ba_arg;
 			break;
 
 		case BOOTARG_EFIINFO:

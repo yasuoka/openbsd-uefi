@@ -47,7 +47,6 @@ static void	 eif_memprobe_internal(void);
 static void	 efi_video_init(void);
 static void	 efi_video_reset(void);
 static void	 hexdump(u_char *, int) __unused;
-static void	 efi_makebootarg_efifb(void);
 
 void (*run_i386)(u_long, u_long, int, int, int, int, int, int, int, int)
     __attribute__ ((noreturn));
@@ -337,48 +336,6 @@ int
 efi_cons_getshifts(dev_t dev)
 {
 	return (0);
-}
-
-static void
-efi_makebootarg_efifb(void)
-{
-	EFI_STATUS			 status;
-	EFI_GRAPHICS_OUTPUT		*gop;
-	EFI_GRAPHICS_OUTPUT_MODE_INFORMATION
-					*gopi;
-	bios_efifb_t			 bios_efifb;
-	int				 depth = 0;
-
-	status = BS->LocateProtocol(&GraphicsOutputGUID, NULL, (void **)&gop);
-	if (EFI_ERROR(status))
-		panic("could not find EFI_GRAPHICS_OUTPUT_PROTOCOL");
-	gopi = gop->Mode->Info;
-
-	bios_efifb.fb_addr = gop->Mode->FrameBufferBase;
-	bios_efifb.fb_size = gop->Mode->FrameBufferSize;
-	bios_efifb.fb_height = gopi->VerticalResolution;
-	bios_efifb.fb_width = gopi->HorizontalResolution;
-	bios_efifb.fb_pixpsl = gopi->PixelsPerScanLine;
-
-	switch (gopi->PixelFormat) {
-	case PixelRedGreenBlueReserved8BitPerColor:
-	case PixelBlueGreenRedReserved8BitPerColor:
-		depth = 32;
-		break;
-
-	case PixelBitMask:
-		depth = fls(gopi->PixelInformation.RedMask);
-		depth = max(depth, fls(gopi->PixelInformation.GreenMask));
-		depth = max(depth, fls(gopi->PixelInformation.BlueMask));
-		depth = max(depth, fls(gopi->PixelInformation.ReservedMask));
-		break;
-
-	default:
-		break;
-	}
-	bios_efifb.fb_depth = depth;
-
-	addbootarg(BOOTARG_EFIFB, sizeof(bios_efifb), &bios_efifb);
 }
 
 /***********************************************************************
@@ -743,9 +700,17 @@ hexdump(u_char *p, int len)
 void
 efi_makebootargs(void)
 {
-	int		 i;
+	int		 i, depth = 0;
+	EFI_STATUS	 status;
+	EFI_GRAPHICS_OUTPUT
+			*gop;
+	EFI_GRAPHICS_OUTPUT_MODE_INFORMATION
+			*gopi;
 	bios_efiinfo_t	 ei;
 
+	/*
+	 * ACPI, BIOS configuration table
+	 */
 	for (i = 0; i < ST->NumberOfTableEntries; i++) {
 		if (efi_guidcmp(&acpi_guid,
 		    &ST->ConfigurationTable[i].VendorGuid) == 0)
@@ -756,7 +721,34 @@ efi_makebootargs(void)
 			ei.config_smbios = (intptr_t)
 			    ST->ConfigurationTable[i].VendorTable;
 	}
-	addbootarg(BOOTARG_EFIINFO, sizeof(ei), &ei);
 
-	efi_makebootarg_efifb();
+	/*
+	 * Frame buffer
+	 */
+	status = BS->LocateProtocol(&GraphicsOutputGUID, NULL, (void **)&gop);
+	if (EFI_ERROR(status))
+		panic("could not find EFI_GRAPHICS_OUTPUT_PROTOCOL");
+	gopi = gop->Mode->Info;
+	switch (gopi->PixelFormat) {
+	case PixelRedGreenBlueReserved8BitPerColor:
+	case PixelBlueGreenRedReserved8BitPerColor:
+		depth = 32;
+		break;
+	case PixelBitMask:
+		depth = fls(gopi->PixelInformation.RedMask);
+		depth = max(depth, fls(gopi->PixelInformation.GreenMask));
+		depth = max(depth, fls(gopi->PixelInformation.BlueMask));
+		depth = max(depth, fls(gopi->PixelInformation.ReservedMask));
+		break;
+	default:
+		break;
+	}
+	ei.fb_addr = gop->Mode->FrameBufferBase;
+	ei.fb_size = gop->Mode->FrameBufferSize;
+	ei.fb_height = gopi->VerticalResolution;
+	ei.fb_width = gopi->HorizontalResolution;
+	ei.fb_pixpsl = gopi->PixelsPerScanLine;
+	ei.fb_depth = depth;
+
+	addbootarg(BOOTARG_EFIINFO, sizeof(ei), &ei);
 }

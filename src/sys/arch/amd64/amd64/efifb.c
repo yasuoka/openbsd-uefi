@@ -116,25 +116,26 @@ efifb_attach(struct device *parent, struct device *self, void *aux)
 int
 efifb_cnattach(void)
 {
-	extern bios_efifb_t	*bios_efifb;
+	extern bios_efiinfo_t	*bios_efiinfo;
 	struct efifb		*fb = &efifb_console;
 	struct rasops_info	*ri = &fb->rinfo;
 	long			 defattr = 0;
 
-	if (bios_efifb == NULL)
+	if (bios_efiinfo == NULL)
 		return (-1);
 
 	memset(&efifb_console, 0, sizeof(efifb_console));
 
 	fb->iot = X86_BUS_SPACE_MEM;
-	ri->ri_bits = (u_char *)PMAP_DIRECT_MAP(bios_efifb->fb_addr);
+	ri->ri_bits = (u_char *)PMAP_DIRECT_MAP(bios_efiinfo->fb_addr);
 
-	ri->ri_width = bios_efifb->fb_width;
-	ri->ri_height = bios_efifb->fb_height;
-	ri->ri_depth = bios_efifb->fb_depth;
-	ri->ri_stride = bios_efifb->fb_pixpsl * (ri->ri_depth / 8);
+	ri->ri_width = bios_efiinfo->fb_width;
+	ri->ri_height = bios_efiinfo->fb_height;
+	ri->ri_depth = bios_efiinfo->fb_depth;
+	ri->ri_stride = bios_efiinfo->fb_pixpsl * (ri->ri_depth / 8);
 
-	rasops_init(ri, bios_efifb->fb_height / 8, bios_efifb->fb_width / 8);
+	rasops_init(ri, bios_efiinfo->fb_height / 8,
+	    bios_efiinfo->fb_width / 8);
 
 	efifb_std_descr.ncols = ri->ri_cols;
 	efifb_std_descr.nrows = ri->ri_rows;

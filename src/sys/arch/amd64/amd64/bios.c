@@ -124,7 +124,7 @@ bios_attach(struct device *parent, struct device *self, void *aux)
 	u_int8_t *p;
 	int smbiosrev = 0;
 	struct smbhdr *hdr = NULL;
-	extern bios_efiinfo_t	*bios_efiinfo;
+	extern bios_efiinfo_t	*bios_efiinfo;	/* XXX */
 
 	if (bios_efiinfo != NULL && bios_efiinfo->config_smbios != 0)
 		hdr = bios_find(PMAP_DIRECT_MAP(
@@ -220,7 +220,6 @@ out:
 
 #if NACPI > 0
 	{
-		int acpi_found = 0;
 		struct bios_attach_args ba;
 
 		memset(&ba, 0, sizeof(ba));
@@ -228,20 +227,10 @@ out:
 		ba.ba_iot = X86_BUS_SPACE_IO;
 		ba.ba_memt = X86_BUS_SPACE_MEM;
 
-		if (bios_efiinfo != NULL) {
-			ba.ba_acpipbase = bios_efiinfo->config_acpi_20;
-			if (config_found(self, &ba, bios_print) != NULL)
-				acpi_found = 1;
-			if (!acpi_found) {
-				ba.ba_acpipbase = bios_efiinfo->config_acpi;
-				if (config_found(self, &ba, bios_print)
-				    != NULL)
-					acpi_found = 1;
-			}
-			bios_efiinfo->config_acpi = 0;
-		}
-		if (!acpi_found)
-			config_found(self, &ba, bios_print);
+		if (bios_efiinfo != NULL)
+			ba.ba_acpipbase = bios_efiinfo->config_acpi;
+
+		config_found(self, &ba, bios_print);
 	}
 #endif
 

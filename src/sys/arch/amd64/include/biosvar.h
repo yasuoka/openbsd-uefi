@@ -190,22 +190,18 @@ typedef struct _bios_bootsr {
 	u_int8_t	maskkey[BOOTSR_CRYPTO_MAXKEYBYTES];
 } __packed bios_bootsr_t;
 
-#define	BOOTARG_EFIFB 11
-typedef struct _bios_efifb {
+#define	BOOTARG_EFIINFO 11
+typedef struct _bios_efiinfo {
+	uint64_t	config_acpi;
+	uint64_t	config_smbios;
 	uint64_t	fb_addr;
 	uint64_t	fb_size;
 	uint64_t	fb_height;
 	uint64_t	fb_width;
 	uint64_t	fb_depth;
 	uint64_t	fb_pixpsl;	/* pixels per scan line */
-} __packed bios_efifb_t;
-
-#define	BOOTARG_EFIINFO 12
-typedef struct _bios_efiinfo {
-	uint64_t	config_acpi;
-	uint64_t	config_acpi_20;
-	uint64_t	config_smbios;
 } __packed bios_efiinfo_t;
+
 #if defined(_KERNEL) || defined (_STANDALONE)
 
 #ifdef _LOCORE
