@@ -683,8 +683,12 @@ Xvideo_efi(void)
 	return (0);
 }
 
-static EFI_GUID acpi_guid = ACPI_TABLE_GUID;
-static EFI_GUID acpi_20_guid = ACPI_20_TABLE_GUID;
+/*
+ * ACPI GUID is confusing in UEFI spec.
+ * {EFI_,}_ACPI_20_TABLE_GUID or EFI_ACPI_TABLE_GUID means
+ * ACPI 2.0 or abobe.
+ */
+static EFI_GUID acpi_guid = ACPI_20_TABLE_GUID;
 static EFI_GUID smbios_guid = SMBIOS_TABLE_GUID;
 
 #define	efi_guidcmp(_a, _b)	memcmp((_a), (_b), sizeof(EFI_GUID))
@@ -739,17 +743,13 @@ hexdump(u_char *p, int len)
 void
 efi_makebootargs(void)
 {
-	bios_efiinfo_t	 ei;
 	int		 i;
+	bios_efiinfo_t	 ei;
 
 	for (i = 0; i < ST->NumberOfTableEntries; i++) {
 		if (efi_guidcmp(&acpi_guid,
 		    &ST->ConfigurationTable[i].VendorGuid) == 0)
 			ei.config_acpi = (intptr_t)
-			    ST->ConfigurationTable[i].VendorTable;
-		else if (eficmp(&acpi_20_guid,
-		    &ST->ConfigurationTable[i].VendorGuid) == 0)
-			ei.config_acpi_20 = (intptr_t)
 			    ST->ConfigurationTable[i].VendorTable;
 		else if (efi_guidcmp(&smbios_guid,
 		    &ST->ConfigurationTable[i].VendorGuid) == 0)
