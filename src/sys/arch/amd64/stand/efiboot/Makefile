@@ -48,7 +48,7 @@ SRCS+=	ufs.c
 SRCS+=	adler32.c crc32.c inflate.c inftrees.c
 
 .PATH:	${S}/lib/libkern
-SRCS+=	strlcpy.c fls.c
+SRCS+=	strlcpy.c
 
 .PATH:	${SADIR}/libsa
 SRCS+=	loadfile.c elf64.c elf32.c memprobe.c cmd_i386.c exec_i386.c

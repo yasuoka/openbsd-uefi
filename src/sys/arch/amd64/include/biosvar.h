@@ -196,10 +196,13 @@ typedef struct _bios_efiinfo {
 	uint64_t	config_smbios;
 	uint64_t	fb_addr;
 	uint64_t	fb_size;
-	uint64_t	fb_height;
-	uint64_t	fb_width;
-	uint64_t	fb_depth;
-	uint64_t	fb_pixpsl;	/* pixels per scan line */
+	uint32_t	fb_height;
+	uint32_t	fb_width;
+	uint32_t	fb_pixpsl;	/* pixels per scan line */
+	uint32_t	fb_red_mask;
+	uint32_t	fb_green_mask;
+	uint32_t	fb_blue_mask;
+	uint32_t	fb_reserved_mask;
 } __packed bios_efiinfo_t;
 
 #if defined(_KERNEL) || defined (_STANDALONE)

@@ -108,10 +108,8 @@ efifb_attach(struct device *parent, struct device *self, void *aux)
 	config_found(self, &aa, wsemuldisplaydevprint);
 }
 
-
-
-
-
+#define bmnum(_x) (fls(htobe32(_x)) - ffs(htobe32(_x)) + 1)
+#define bmpos(_x) (ffs(htobe32(_x)) - 1)
 
 int
 efifb_cnattach(void)
@@ -120,8 +118,9 @@ efifb_cnattach(void)
 	struct efifb		*fb = &efifb_console;
 	struct rasops_info	*ri = &fb->rinfo;
 	long			 defattr = 0;
+	int			 depth;
 
-	if (bios_efiinfo == NULL)
+	if (bios_efiinfo == NULL || bios_efiinfo->fb_addr == 0)
 		return (-1);
 
 	memset(&efifb_console, 0, sizeof(efifb_console));
@@ -131,8 +130,21 @@ efifb_cnattach(void)
 
 	ri->ri_width = bios_efiinfo->fb_width;
 	ri->ri_height = bios_efiinfo->fb_height;
-	ri->ri_depth = bios_efiinfo->fb_depth;
+
+	depth = 0;
+	depth = max(depth, fls(bios_efiinfo->fb_red_mask));
+	depth = max(depth, fls(bios_efiinfo->fb_green_mask));
+	depth = max(depth, fls(bios_efiinfo->fb_blue_mask));
+	depth = max(depth, fls(bios_efiinfo->fb_reserved_mask));
+	ri->ri_depth = depth;
 	ri->ri_stride = bios_efiinfo->fb_pixpsl * (ri->ri_depth / 8);
+
+	ri->ri_rnum = bmnum(bios_efiinfo->fb_red_mask);
+	ri->ri_rpos = bmpos(bios_efiinfo->fb_red_mask);
+	ri->ri_gnum = bmnum(bios_efiinfo->fb_green_mask);
+	ri->ri_gpos = bmpos(bios_efiinfo->fb_green_mask);
+	ri->ri_bnum = bmnum(bios_efiinfo->fb_blue_mask);
+	ri->ri_bpos = bmpos(bios_efiinfo->fb_blue_mask);
 
 	rasops_init(ri, bios_efiinfo->fb_height / 8,
 	    bios_efiinfo->fb_width / 8);
@@ -142,6 +154,8 @@ efifb_cnattach(void)
 	efifb_std_descr.textops = &ri->ri_ops;
 	efifb_std_descr.fontwidth = ri->ri_font->fontwidth;
 	efifb_std_descr.fontheight = ri->ri_font->fontheight;
+	efifb_std_descr.capabilities = WSSCREEN_WSCOLORS | WSSCREEN_HILIT |
+	    WSSCREEN_BLINK;
 
 	ri->ri_ops.alloc_attr(ri, 0, 0, 0, &defattr);
 

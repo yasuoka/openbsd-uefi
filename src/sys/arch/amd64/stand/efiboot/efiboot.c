@@ -40,8 +40,6 @@ EFI_PHYSICAL_ADDRESS	 heap;
 UINTN			 heapsiz = 3 * 1024 * 1024;
 UINTN			 mmap_key;
 
-int fls(int);
-
 static void	 efi_heap_init(void);
 static void	 eif_memprobe_internal(void);
 static void	 efi_video_init(void);
@@ -700,7 +698,7 @@ hexdump(u_char *p, int len)
 void
 efi_makebootargs(void)
 {
-	int		 i, depth = 0;
+	int		 i;
 	EFI_STATUS	 status;
 	EFI_GRAPHICS_OUTPUT
 			*gop;
@@ -731,14 +729,22 @@ efi_makebootargs(void)
 	gopi = gop->Mode->Info;
 	switch (gopi->PixelFormat) {
 	case PixelRedGreenBlueReserved8BitPerColor:
+		ei.fb_red_mask = 0xff000000;
+		ei.fb_green_mask = 0x00ff0000;
+		ei.fb_blue_mask = 0x0000ff00;
+		ei.fb_reserved_mask = 0x000000ff;
+		break;
 	case PixelBlueGreenRedReserved8BitPerColor:
-		depth = 32;
+		ei.fb_red_mask =  0x0000ff00;
+		ei.fb_green_mask = 0x00ff0000;
+		ei.fb_blue_mask = 0xff000000;
+		ei.fb_reserved_mask = 0x000000ff;
 		break;
 	case PixelBitMask:
-		depth = fls(gopi->PixelInformation.RedMask);
-		depth = max(depth, fls(gopi->PixelInformation.GreenMask));
-		depth = max(depth, fls(gopi->PixelInformation.BlueMask));
-		depth = max(depth, fls(gopi->PixelInformation.ReservedMask));
+		ei.fb_red_mask = gopi->PixelInformation.RedMask;
+		ei.fb_green_mask = gopi->PixelInformation.GreenMask;
+		ei.fb_blue_mask = gopi->PixelInformation.BlueMask;
+		ei.fb_reserved_mask = gopi->PixelInformation.ReservedMask;
 		break;
 	default:
 		break;
@@ -748,7 +754,6 @@ efi_makebootargs(void)
 	ei.fb_height = gopi->VerticalResolution;
 	ei.fb_width = gopi->HorizontalResolution;
 	ei.fb_pixpsl = gopi->PixelsPerScanLine;
-	ei.fb_depth = depth;
 
 	addbootarg(BOOTARG_EFIINFO, sizeof(ei), &ei);
 }
