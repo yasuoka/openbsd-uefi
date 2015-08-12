@@ -22,7 +22,7 @@ option		MTRR		# CPU memory range attributes control
 #option		KGDB		# Remote debugger support; exclusive of DDB
 #option		"KGDB_DEVNAME=\"com\"",KGDBADDR=0x2f8,KGDBRATE=9600
 
-#option		GPT		# GPT partition table support
+option		GPT		# GPT partition table support
 option		NTFS		# NTFS support
 option		HIBERNATE	# Hibernate support
 
