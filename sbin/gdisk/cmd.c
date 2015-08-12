@@ -152,7 +152,7 @@ Xedit(cmd_t *cmd, disk_t *disk, gpt_t *gpt, gpt_t *tt, int offset)
 	}
 
 	if (uuid_is_nil(&pp->guid, NULL))
-		uuidgen(&pp->guid, 1);
+		uuid_create(&pp->guid, NULL);
 
 	return (ret);
 }

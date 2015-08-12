@@ -69,7 +69,7 @@ GPT_init(disk_t *disk, gpt_t *gpt)
 	gpt->header->start_lba = (gpt->header->partitions_num + 3) / 4 + 2;
 	gpt->header->end_lba = disk->real->size -
 	    ((gpt->header->partitions_num + 3) / 4 + 2);
-	uuidgen(&gpt->header->guid, 1);
+	uuid_create(&gpt->header->guid, NULL);
 
 	GPT_fillremaining(gpt, 0);
 	PRT_set_type_by_pid(&gpt->part[0], GPTPTYP_OPENBSD);
