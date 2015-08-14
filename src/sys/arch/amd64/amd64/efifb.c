@@ -41,7 +41,6 @@ int	 efifb_load_font(void *, void *, struct wsdisplay_font *);
 
 struct efifb {
 	struct rasops_info	 rinfo;
-	bus_space_tag_t		 iot;
 };
 
 struct efifb_softc {
@@ -123,10 +122,29 @@ efifb_ioctl(void *v, u_long cmd, caddr_t data, int flag, struct proc *p)
 		wdf->width = ri->ri_width;
 		wdf->height = ri->ri_height;
 		wdf->depth = ri->ri_depth;
-		wdf->cmsize = 256;	/* XXX? */
+		wdf->cmsize = 0;	/* color map is unavailable */
 		break;
 	case WSDISPLAYIO_LINEBYTES:
 		*(u_int *)data = ri->ri_stride;
+		break;
+	case WSDISPLAYIO_SMODE:
+		break;
+	case WSDISPLAYIO_GETSUPPORTEDDEPTH:
+		/* can't change the depth */
+		if (ri->ri_depth == 32 || ri->ri_depth == 24)
+			*(u_int *)data = WSDISPLAYIO_DEPTH_24;
+		else if (ri->ri_depth == 16)
+			*(u_int *)data = WSDISPLAYIO_DEPTH_16;
+		else if (ri->ri_depth == 15)
+			*(u_int *)data = WSDISPLAYIO_DEPTH_15;
+		else if (ri->ri_depth == 8)
+			*(u_int *)data = WSDISPLAYIO_DEPTH_8;
+		else if (ri->ri_depth == 4)
+			*(u_int *)data = WSDISPLAYIO_DEPTH_4;
+		else if (ri->ri_depth == 1)
+			*(u_int *)data = WSDISPLAYIO_DEPTH_1;
+		else
+			return (-1);
 		break;
 	default:
 		return (-1);
@@ -141,8 +159,10 @@ efifb_mmap(void *v, off_t off, int prot)
 	struct efifb_softc	*sc = v;
 	struct rasops_info	*ri = &sc->sc_fb->rinfo;
 
-	return bus_space_mmap(sc->sc_fb->iot,
-	    (bus_addr_t)ri->ri_bits, off, prot, 0);
+	if (off > ri->ri_height * ri->ri_stride)
+		return (-1);
+
+	return (PMAP_DIRECT_UNMAP(ri->ri_bits) + off);
 }
 
 int
@@ -213,7 +233,6 @@ efifb_cnattach(void)
 
 	memset(&efifb_console, 0, sizeof(efifb_console));
 
-	fb->iot = X86_BUS_SPACE_MEM;
 	ri->ri_bits = (u_char *)PMAP_DIRECT_MAP(bios_efiinfo->fb_addr);
 
 	ri->ri_width = bios_efiinfo->fb_width;
