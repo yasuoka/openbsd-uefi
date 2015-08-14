@@ -1,0 +1,50 @@
+commit bfe5cc479587cb32f77aabc2939fe31a4b395d0e
+Author: YASUOKA Masahiko <yasuoka@yasuoka.net>
+Date:   Fri Aug 14 13:19:43 2015 +0900
+
+    Fill pPtr->info by WSDISPLAYIO_GINFO always.
+    Without doing this, consistency check for screen bpp and framebuffers
+    depth fails.
+
+diff --git a/driver/xf86-video-wsfb/src/wsfb_driver.c b/driver/xf86-video-wsfb/src/wsfb_driver.c
+index f811306..c8af4ae 100644
+--- a/driver/xf86-video-wsfb/src/wsfb_driver.c
++++ b/driver/xf86-video-wsfb/src/wsfb_driver.c
+@@ -431,6 +431,11 @@ WsfbPreInit(ScrnInfoPtr pScrn, int flags)
+ 	 * Depth
+ 	 */
+ 	defaultDepth = 0;
++	if (ioctl(fPtr->fd, WSDISPLAYIO_GINFO, &fPtr->info) == -1) {
++		xf86DrvMsg(pScrn->scrnIndex, X_ERROR,
++		    "no way to get depth info: %s\n", strerror(errno));
++		return FALSE;
++	}
+ 	if (ioctl(fPtr->fd, WSDISPLAYIO_GETSUPPORTEDDEPTH,
+ 		&depths) == 0) {
+ 		/* Preferred order for default depth selection. */
+@@ -456,12 +461,6 @@ WsfbPreInit(ScrnInfoPtr pScrn, int flags)
+ 			flags24 = Support24bppFb;
+ 	} else {
+ 		/* Old way */
+-		if (ioctl(fPtr->fd, WSDISPLAYIO_GINFO, &fPtr->info) == -1) {
+-			xf86DrvMsg(pScrn->scrnIndex, X_ERROR,
+-			    "no way to get depth info: %s\n",
+-			    strerror(errno));
+-			return FALSE;
+-		}
+ 		if (fPtr->info.depth == 8) {
+ 			/*
+ 			 * We might run on a byte addressable frame buffer,
+@@ -512,12 +511,6 @@ WsfbPreInit(ScrnInfoPtr pScrn, int flags)
+ 			}
+ 		}
+ 	}
+-	if (ioctl(fPtr->fd, WSDISPLAYIO_GINFO, &fPtr->info) == -1) {
+-		xf86DrvMsg(pScrn->scrnIndex, X_ERROR,
+-		    "ioctl WSDISPLAY_GINFO: %s\n",
+-		    strerror(errno));
+-		return FALSE;
+-	}
+ 	if (ioctl(fPtr->fd, WSDISPLAYIO_LINEBYTES, &fPtr->linebytes) == -1) {
+ 		xf86DrvMsg(pScrn->scrnIndex, X_ERROR,
+ 			   "ioctl WSDISPLAYIO_LINEBYTES: %s\n",

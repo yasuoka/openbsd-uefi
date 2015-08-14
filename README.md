@@ -1,6 +1,9 @@
 UEFI boot for OpenBSD
 =====================
 
+Experimental.
+
+
 Current Status
 --------------
 
@@ -49,6 +52,17 @@ Other commands added to boot(8):
     machine video ..... show available video mode
     machine video # ... change the current video mode
     machine exit ...... exit EFI BOOT, then next EFI boot will start
+
+X11:
+
+- Currently only works with framebuffer if the machine don't have a VGA.
+- Patch xenocara-wsfb.diff to xenocra
+- Use xorg.conf to use wsfb.
+
+GPT:
+
+- Compile src/sbin/gdisk
+- Try gdisk(8)
 
 TODO
 ----
