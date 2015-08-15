@@ -46,7 +46,6 @@ struct efifb {
 struct efifb_softc {
 	struct device	 sc_dev;
 	struct efifb	*sc_fb;
-	int		 sc_nscr;
 };
 
 struct cfattach efifb_ca = {
@@ -91,16 +90,29 @@ efifb_attach(struct device *parent, struct device *self, void *aux)
 	struct efifb_softc	*sc = (struct efifb_softc *)self;
 	struct wsemuldisplaydev_attach_args
 				 aa;
+	struct rasops_info 	*ri;
+	int			 ccol, crow;
+	long			 defattr;
 
 	printf("\n");
 	if (1) {
 		aa.console = 1;	/* XXX */
 		sc->sc_fb = &efifb_console;
+		ri = &sc->sc_fb->rinfo;
 	}
 	aa.scrdata = &efifb_screen_list;
 	aa.accessops = &efifb_accessops;
 	aa.accesscookie = sc;
 	aa.defaultscreens = 0;
+
+	ccol = ri->ri_ccol;
+	crow = ri->ri_crow;
+
+	ri->ri_flg = RI_VCONS;
+	rasops_init(ri, 160, 160);
+
+	ri->ri_ops.alloc_attr(ri->ri_active, 0, 0, 0, &defattr);
+	wsdisplay_cnattach(&efifb_std_descr, ri->ri_active, ccol, crow, defattr);
 
 	config_found(self, &aa, wsemuldisplaydevprint);
 }
@@ -115,7 +127,7 @@ efifb_ioctl(void *v, u_long cmd, caddr_t data, int flag, struct proc *p)
 
 	switch (cmd) {
 	case WSDISPLAYIO_GTYPE:
-		*(u_int *)data = WSDISPLAY_TYPE_EFIFB	;
+		*(u_int *)data = WSDISPLAY_TYPE_EFIFB;
 		break;
 	case WSDISPLAYIO_GINFO:
 		wdf = (struct wsdisplay_fbinfo *)data;
@@ -172,30 +184,26 @@ efifb_alloc_screen(void *v, const struct wsscreen_descr *descr,
 	struct efifb_softc	*sc = v;
 	struct rasops_info	*ri = &sc->sc_fb->rinfo;
 
-	if (sc->sc_nscr > 0)
-		return (ENOMEM);
-
-	*cookiep = ri;
-	*curxp = *curyp = 0;
-	ri->ri_ops.alloc_attr(ri, 0, 0, 0, attrp);
-	sc->sc_nscr++;
-
-	return 0;
+	return rasops_alloc_screen(ri, cookiep, curxp, curyp, attrp);
 }
 
 void
-efifb_free_screen(void *v, void *cookiep)
+efifb_free_screen(void *v, void *cookie)
 {
 	struct efifb_softc	*sc = v;
+	struct rasops_info	*ri = &sc->sc_fb->rinfo;
 
-	sc->sc_nscr--;
+	rasops_free_screen(ri, cookie);
 }
 
 int
 efifb_show_screen(void *v, void *cookie, int waitok,
     void (*cb) (void *, int, int), void *cb_arg)
 {
-	return 0;
+	struct efifb_softc	*sc = v;
+	struct rasops_info	*ri = &sc->sc_fb->rinfo;
+
+	return rasops_show_screen(ri, cookie, waitok, cb, cb_arg);
 }
 
 int
@@ -252,21 +260,20 @@ efifb_cnattach(void)
 	ri->ri_gpos = bmpos(bios_efiinfo->fb_green_mask);
 	ri->ri_bnum = bmnum(bios_efiinfo->fb_blue_mask);
 	ri->ri_bpos = bmpos(bios_efiinfo->fb_blue_mask);
+	ri->ri_flg = RI_CLEAR;
 
-	rasops_init(ri, bios_efiinfo->fb_height / 8,
-	    bios_efiinfo->fb_width / 8);
+	rasops_init(ri, 1600, 1600);
 
 	efifb_std_descr.ncols = ri->ri_cols;
 	efifb_std_descr.nrows = ri->ri_rows;
 	efifb_std_descr.textops = &ri->ri_ops;
 	efifb_std_descr.fontwidth = ri->ri_font->fontwidth;
 	efifb_std_descr.fontheight = ri->ri_font->fontheight;
-	efifb_std_descr.capabilities = WSSCREEN_WSCOLORS | WSSCREEN_HILIT |
-	    WSSCREEN_BLINK;
+	efifb_std_descr.capabilities = ri->ri_caps;
 
 	ri->ri_ops.alloc_attr(ri, 0, 0, 0, &defattr);
 
-	wsdisplay_cnattach(&efifb_std_descr, fb, 0, 0, defattr);
+	wsdisplay_cnattach(&efifb_std_descr, ri, 0, 0, defattr);
 
 	return (0);
 }
