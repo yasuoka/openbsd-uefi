@@ -36,6 +36,7 @@
 
 u_int cnvmem, extmem;		/* XXX - compatibility */
 
+
 /*
  * Check gateA20
  *

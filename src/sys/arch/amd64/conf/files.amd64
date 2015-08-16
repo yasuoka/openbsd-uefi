@@ -114,7 +114,6 @@ attach efifb at mainbus
 file arch/amd64/amd64/efifb.c			efifb needs-flag
 
 #
-#
 # PCI drivers
 #
 
@@ -242,6 +241,7 @@ include "dev/onewire/files.onewire"
 #
 attach	ipmi at mainbus
 
+#
 # Paravirtual device bus
 #
 include "dev/pv/files.pv"
