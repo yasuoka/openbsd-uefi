@@ -107,6 +107,14 @@ attach	ioapic at mainbus
 file	arch/amd64/amd64/ioapic.c		ioapic needs-flag
 
 #
+# EFI Framebuffer
+#
+device efifb: wsemuldisplaydev, rasops16, rasops8, rasops4
+attach efifb at mainbus
+file arch/amd64/amd64/efifb.c			efifb needs-flag
+
+#
+#
 # PCI drivers
 #
 
@@ -234,14 +242,6 @@ include "dev/onewire/files.onewire"
 #
 attach	ipmi at mainbus
 
-#
-# FB
-#
-device efifb: wsemuldisplaydev, rasops16, rasops8, rasops4
-attach efifb at mainbus
-file arch/amd64/amd64/efifb.c			efifb needs-flag
-
-#
 # Paravirtual device bus
 #
 include "dev/pv/files.pv"

@@ -66,9 +66,6 @@ mpbios0		at bios0
 
 ipmi0	at mainbus? disable	# IPMI
 
-efifb0	at mainbus?
-wsdisplay0	at efifb? console 1
-
 vmt0	at pvbus?		# VMware Tools
 
 option		PCIVERBOSE
@@ -336,6 +333,9 @@ lpt0	at isa? port 0x378 irq 7	# standard PC parallel ports
 #lpt1	at isa? port 0x278
 #lpt2	at isa? port 0x3bc
 lpt*	at puc?
+
+efifb0		at mainbus?		# EFI Framebuffer
+wsdisplay0	at efifb? console 1
 
 #bha*	at pci?				# BusLogic [57]4X SCSI controllers
 ahc*	at pci?				# Adaptec 2940 SCSI controllers
