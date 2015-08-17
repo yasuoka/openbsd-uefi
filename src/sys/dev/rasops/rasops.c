@@ -569,9 +569,9 @@ rasops_alloc_mattr(void *cookie, int fg, int bg, int flg, long *attr)
 int
 rasops_copyrows(void *cookie, int src, int dst, int num)
 {
-	int32_t *sp, *dp, *srp, *drp;
+	int32_t *srp, *drp;
 	struct rasops_info *ri;
-	int n8, n1, cnt, delta;
+	int delta;
 
 	ri = (struct rasops_info *)cookie;
 
@@ -600,8 +600,6 @@ rasops_copyrows(void *cookie, int src, int dst, int num)
 #endif
 
 	num *= ri->ri_font->fontheight;
-	n8 = ri->ri_emustride >> 5;
-	n1 = (ri->ri_emustride >> 2) & 7;
 
 	if (dst < src) {
 		srp = (int32_t *)(ri->ri_bits + src * ri->ri_yscale);
@@ -616,26 +614,9 @@ rasops_copyrows(void *cookie, int src, int dst, int num)
 	}
 
 	while (num--) {
-		dp = drp;
-		sp = srp;
 		DELTA(drp, delta, int32_t *);
 		DELTA(srp, delta, int32_t *);
-
-		for (cnt = n8; cnt; cnt--) {
-			dp[0] = sp[0];
-			dp[1] = sp[1];
-			dp[2] = sp[2];
-			dp[3] = sp[3];
-			dp[4] = sp[4];
-			dp[5] = sp[5];
-			dp[6] = sp[6];
-			dp[7] = sp[7];
-			dp += 8;
-			sp += 8;
-		}
-
-		for (cnt = n1; cnt; cnt--)
-			*dp++ = *sp++;
+		memmove(drp, srp, ri->ri_emustride);
 	}
 
 	return 0;
