@@ -580,7 +580,7 @@ efip_probe(void)
 	sz = 0;
 	status = BS->LocateHandle(ByProtocol, &blkio_guid, 0, &sz, 0);
 	if (status == EFI_BUFFER_TOO_SMALL) {
-		h = (EFI_HANDLE)alloc(sz * 3);
+		h = (EFI_HANDLE)alloc(sz);
 		BS->LocateHandle(ByProtocol, &blkio_guid, 0, &sz, h);
 	}
 
@@ -600,9 +600,10 @@ efip_probe(void)
 			dsk->handle = h[i];
 			TAILQ_INSERT_TAIL(&dskinfoh, dsk, next);
 			printf(" part%d", i);
+			break;
 		}
 	}
-	free(h, sz * 3);
+	free(h, sz);
 }
 
 /***********************************************************************
