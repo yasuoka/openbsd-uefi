@@ -224,8 +224,8 @@ efifb_list_font(void *v, struct wsdisplay_font *font)
 	return (rasops_list_font(ri, font));
 }
 
-#define bmnum(_x) (fls(htobe32(_x)) - ffs(htobe32(_x)) + 1)
-#define bmpos(_x) (ffs(htobe32(_x)) - 1)
+#define bmnum(_x) (fls(_x) - ffs(_x) + 1)
+#define bmpos(_x) (ffs(_x) - 1)
 
 int
 efifb_cnattach(void)
