@@ -639,6 +639,70 @@ Xvideo_efi(void)
 	return (0);
 }
 
+int
+Xdisk_efi(void)
+{
+	EFI_STATUS	 status;
+	EFI_HANDLE	*h;
+	EFI_DEVICE_PATH	*devp0, *devp;
+	char		*p;
+	UINTN		 sz;
+	int		 dnum = -1;
+	HARDDRIVE_DEVICE_PATH
+			*dp;
+
+	printf("OK!\n");
+	sz = 0;
+	status = BS->LocateHandle(ByProtocol, &blkio_guid, 0, &sz, 0);
+	if (status == EFI_BUFFER_TOO_SMALL) {
+		h = (EFI_HANDLE)alloc(sz);
+		BS->LocateHandle(ByProtocol, &blkio_guid, 0, &sz, h);
+	}
+	if (cmd.argc == 2) {
+		p = cmd.argv[1];
+		dnum = strtol(p, &p, 10);
+	}
+
+	if (dnum >= 0 && dnum < sz / sizeof(EFI_HANDLE)) {
+		status = BS->HandleProtocol(h[dnum], &devp_guid, (void **)&devp0);
+		if (EFI_ERROR(status)) {
+			printf("#%d is not available\n");
+			free(h, sz);
+			return (-1);
+		}
+
+		for (devp = devp0; !IsDevicePathEnd(devp);
+		    devp = NextDevicePathNode(devp)) {
+			printf("#%d %d/%d\n", dnum, DevicePathType(devp), DevicePathSubType(devp));
+			if (DevicePathType(devp) != MEDIA_DEVICE_PATH ||
+			    DevicePathSubType(devp) != MEDIA_HARDDRIVE_DP)
+				continue;
+			dp = (HARDDRIVE_DEVICE_PATH *)devp;
+			printf(
+			    "   Partition Number: %ld\n"
+			    "   Partition Start : %ld\n"
+			    "   Partition Size  : %ld\n"
+			    "   Signature       :\n"
+			    , (long)dp->PartitionNumber
+			    , (long)dp->PartitionStart
+			    , (long)dp->PartitionSize
+			    );
+			hexdump(dp->Signature, 16);
+			printf(
+			    "   MBRType         : %s\n"
+			    "   SignatureType   : %s\n"
+			    , (dp->MBRType == MBR_TYPE_PCAT)? "PCAT" : "EFI PARTITION TABLE HEADER"
+			    , (dp->SignatureType == SIGNATURE_TYPE_MBR)? "MBR" : "GUID"
+			    );
+		}
+	} else
+		printf("0-%d is avaiable\n", sz / sizeof(EFI_HANDLE) - 1);
+
+	free(h, sz);
+
+	return (0);
+}
+
 /*
  * ACPI GUID is confusing in UEFI spec.
  * {EFI_,}_ACPI_20_TABLE_GUID or EFI_ACPI_TABLE_GUID means

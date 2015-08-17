@@ -30,6 +30,7 @@ int	 efip_ioctl (struct open_file *, u_long, void *);
 void	 efip_probe (void);
 int	 Xvideo_efi(void);
 int	 Xexit_efi(void);
+int	 Xdisk_efi(void);
 void	 efi_makebootargs(void);
 
 extern void (*run_i386)(u_long, u_long, int, int, int, int, int, int, int, int)

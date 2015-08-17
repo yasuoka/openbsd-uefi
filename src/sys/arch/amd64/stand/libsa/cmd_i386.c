@@ -55,7 +55,11 @@ int bootbuf(void *, int);
 const struct cmd_table cmd_machine[] = {
 	{ "boot",	CMDT_CMD, Xboot },
 	{ "comaddr",	CMDT_CMD, Xcomaddr },
+#ifdef EFIBOOT
+	{ "diskinfo",	CMDT_CMD, Xdisk_efi },
+#else
 	{ "diskinfo",	CMDT_CMD, Xdiskinfo },
+#endif
 	{ "memory",	CMDT_CMD, Xmemory },
 #ifdef EFIBOOT
 	{ "video",	CMDT_CMD, Xvideo_efi },
