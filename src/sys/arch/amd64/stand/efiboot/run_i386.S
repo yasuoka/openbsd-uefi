@@ -31,7 +31,11 @@ _C_LABEL(run_i386_size):
 	.globl	_C_LABEL(run_i386_start)
 _C_LABEL(run_i386_start):
 start:
-	mov	%rsi, %rbx
+	/*
+	 * run_i386(_start) is to call the loaded kernel's start() with
+	 * 32bit segment mode from x64 mode.
+	 * %rdi == loaded start address, %rsi == kernel start address
+	 */
 
 	/* re-arrange the parameters for the x86 calling convension */
 	mov	%edx, (run_i386_end - start - 0x20)(%rdi)
@@ -60,7 +64,6 @@ start:
 	ljmp	*(start32r - start)(%rdi)
 
 	.align	4
-
 start32a:
 	.code32
 	movl	$DATA_SEGMENT, %eax
