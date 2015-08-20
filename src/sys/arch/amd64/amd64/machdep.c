@@ -1281,7 +1281,6 @@ init_x86_64(paddr_t first_avail)
 			panic("boot args too big");
 
 		getbootinfo(bootinfo, bootinfo_size);
-		cninit();	/* try again for frame buffer */
 	} else
 		panic("invalid /boot");
 

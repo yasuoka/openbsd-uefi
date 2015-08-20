@@ -29,11 +29,11 @@
 
 #include <sys/param.h>
 #include <sys/systm.h>
-#include <sys/device.h>
-#include <machine/bus.h>
+#include <dev/cons.h>
 
 void
 consinit()
 {
 	/* already done in machdep.c */
+	cninit();
 }
