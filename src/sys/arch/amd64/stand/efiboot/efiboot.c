@@ -44,6 +44,8 @@ static void	 efi_heap_init(void);
 static void	 eif_memprobe_internal(void);
 static void	 efi_video_init(void);
 static void	 efi_video_reset(void);
+static void	 efi_video_bestmode(void);
+
 static void	 hexdump(u_char *, int) __unused;
 
 void (*run_i386)(u_long, u_long, int, int, int, int, int, int, int, int)
@@ -226,7 +228,6 @@ static EFI_GUID				 ConsoleControlGUID
 					    = EFI_CONSOLE_CONTROL_PROTOCOL_GUID;
 static EFI_GUID				 GraphicsOutputGUID
 					    = EFI_GRAPHICS_OUTPUT_PROTOCOL_GUID;
-
 struct efi_video {
 	int	cols;
 	int	rows;
@@ -275,6 +276,24 @@ efi_video_reset(void)
 	conout->EnableCursor(conout, TRUE);
 	conout->SetAttribute(conout, EFI_TEXT_ATTR(EFI_LIGHTGRAY, EFI_BLACK));
 	conout->ClearScreen(conout);
+}
+
+static void
+efi_video_bestmode(void)
+{
+	int		 i, bestmode = -1, best = 0;
+
+	for (i = 0; i < nitems(efi_video); i++) {
+		if (efi_video[i].cols == 0)
+			break;
+		if (best < efi_video[i].cols * efi_video[i].rows) {
+			best = efi_video[i].cols * efi_video[i].rows;
+			bestmode = i;
+		}
+	}
+	if (bestmode > 0)
+                conout->SetMode(conout, bestmode);
+	efi_video_reset();
 }
 
 void
@@ -788,6 +807,7 @@ efi_makebootargs(void)
 	/*
 	 * Frame buffer
 	 */
+	efi_video_bestmode();
 	status = BS->LocateProtocol(&GraphicsOutputGUID, NULL, (void **)&gop);
 	if (EFI_ERROR(status))
 		panic("could not find EFI_GRAPHICS_OUTPUT_PROTOCOL");
