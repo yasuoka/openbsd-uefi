@@ -81,7 +81,12 @@ struct efifb efifb_console;
 int
 efifb_match(struct device *parent, void *cf, void *aux)
 {
-	return (1);
+	extern bios_efiinfo_t	*bios_efiinfo;
+
+	if (bios_efiinfo != NULL)
+		return (1);
+
+	return (0);
 }
 
 void
