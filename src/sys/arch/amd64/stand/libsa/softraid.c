@@ -173,8 +173,7 @@ srprobe(void)
 			bzero(md, SR_META_SIZE * DEV_BSIZE);
 			off = DL_SECTOBLK(&dip->disklabel, DL_GETPOFFSET(pp));
 			off += SR_META_OFFSET;
-			error = biosd_io(F_READ, &dip->bios_info, off,
-			    SR_META_SIZE, md);
+			error = dip->diskio(F_READ, dip, off, SR_META_SIZE, md);
 			if (error)
 				continue;
 

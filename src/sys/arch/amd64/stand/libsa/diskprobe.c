@@ -62,6 +62,13 @@ extern int debug;
 extern int bios_bootdev;
 extern int bios_cddev;
 
+static void
+diskinfo_init(struct diskinfo *dip)
+{
+	bzero(dip, sizeof(*dip));
+	dip->diskio = biosd_diskio;
+}
+
 /* Probe for all BIOS floppies */
 static void
 floppyprobe(void)
@@ -72,7 +79,7 @@ floppyprobe(void)
 	/* Floppies */
 	for (i = 0; i < 4; i++) {
 		dip = alloc(sizeof(struct diskinfo));
-		bzero(dip, sizeof(*dip));
+		diskinfo_init(dip);
 
 		if (bios_getdiskinfo(i, &dip->bios_info)) {
 #ifdef BIOS_DEBUG
@@ -115,7 +122,7 @@ hardprobe(void)
 	/* Hard disks */
 	for (i = 0x80; i < (0x80 + *dc); i++) {
 		dip = alloc(sizeof(struct diskinfo));
-		bzero(dip, sizeof(*dip));
+		diskinfo_init(dip);
 
 		if (bios_getdiskinfo(i, &dip->bios_info)) {
 #ifdef BIOS_DEBUG
@@ -229,7 +236,7 @@ cdprobe(void)
 		return;
 
 	dip = alloc(sizeof(struct diskinfo));
-	bzero(dip, sizeof(*dip));
+	diskinfo_init(dip);
 
 #if 0
 	if (bios_getdiskinfo(cddev, &dip->bios_info)) {
@@ -368,7 +375,7 @@ disksum(int blk)
 			continue;
 
 		/* Adler32 checksum */
-		st = biosd_io(F_READ, bdi, blk, 1, buf);
+		st = dip->diskio(F_READ, dip, blk, 1, buf);
 		if (st) {
 			bdi->flags |= BDI_INVALID;
 			continue;

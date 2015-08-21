@@ -94,7 +94,7 @@ Xboot(void)
 {
 #ifndef _TEST
 	int dev, part, st;
-	bios_diskinfo_t *bd = NULL;
+	struct diskinfo *dip;
 	char buf[DEV_BSIZE], *dest = (void *)BOOTBIOS_ADDR;
 
 	if (cmd.argc != 2) {
@@ -127,8 +127,8 @@ Xboot(void)
 		printf("[%x]\n", dev);
 
 	/* Read boot sector from device */
-	bd = bios_dklookup(dev);
-	st = biosd_io(F_READ, bd, 0, 1, buf);
+	dip = dklookup(dev);
+	st = dip->diskio(F_READ, dip, 0, 1, buf);
 	if (st)
 		goto bad;
 

@@ -41,6 +41,7 @@
 
 struct consdev;
 struct open_file;
+struct diskinfo;
 
 /* biosdev.c */
 extern const char *biosdevs[];
@@ -49,7 +50,7 @@ int biosopen(struct open_file *, ...);
 int biosclose(struct open_file *);
 int biosioctl(struct open_file *, u_long, void *);
 int bios_getdiskinfo(int, bios_diskinfo_t *);
-int biosd_io(int, bios_diskinfo_t *, u_int, int, void *);
+int biosd_diskio(int, struct diskinfo *, u_int, int, void *);
 const char * bios_getdisklabel(bios_diskinfo_t *, struct disklabel *);
 
 /* diskprobe.c */

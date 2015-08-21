@@ -38,6 +38,8 @@ struct diskinfo {
 	struct disklabel disklabel;
 	struct sr_boot_volume *sr_vol;
 
+	int (*diskio)(int, struct diskinfo *, u_int, int, void *);
+
 	dev_t bsddev, bootdev;
 
 	TAILQ_ENTRY(diskinfo) list;

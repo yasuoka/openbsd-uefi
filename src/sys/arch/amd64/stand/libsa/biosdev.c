@@ -51,6 +51,7 @@ static int biosdisk_errno(u_int);
 int CHS_rw (int, int, int, int, int, int, void *);
 static int EDD_rw (int, int, u_int32_t, u_int32_t, void *);
 
+static int biosd_io(int, bios_diskinfo_t *, u_int, int, void *);
 static u_int findopenbsd(bios_diskinfo_t *, const char **);
 
 extern int debug;
@@ -339,6 +340,11 @@ biosd_io(int rw, bios_diskinfo_t *bd, u_int off, int nsect, void *buf)
 	return error;
 }
 
+int
+biosd_diskio(int rw, struct diskinfo *dip, u_int off, int nsect, void *buf)
+{
+	return biosd_io(rw, &dip->bios_info, off, nsect, buf);
+}
 /*
  * Try to read the bsd label on the given BIOS device.
  */
