@@ -402,7 +402,7 @@ sr_getdisklabel(struct sr_boot_volume *bv, struct disklabel *label)
 	struct dos_partition *dp;
 	struct dos_mbr mbr;
 	u_int start = 0;
-	char *buf;
+	char buf[DEV_BSIZE];
 	int i;
 
 	/* Check for MBR to determine partition offset. */
@@ -426,7 +426,6 @@ sr_getdisklabel(struct sr_boot_volume *bv, struct disklabel *label)
 	start += LABELSECTOR;
 
 	/* Read the disklabel. */
-	buf = alloca(DEV_BSIZE);
 	sr_strategy(bv, F_READ, start, sizeof(struct disklabel), buf, NULL);
 
 #ifdef BIOS_DEBUG

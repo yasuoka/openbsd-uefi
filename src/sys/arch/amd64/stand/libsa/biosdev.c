@@ -247,6 +247,7 @@ biosd_io(int rw, bios_diskinfo_t *bd, u_int off, int nsect, void *buf)
 	int j, error;
 	void *bb;
 	int bbsize = nsect * DEV_BSIZE;
+	char buf0[DEV_BSIZE];
 
 	if (bd->flags & BDI_EL_TORITO) {	/* It's a CD device */
 		dev &= 0xff;			/* Mask out this flag bit */
@@ -272,7 +273,7 @@ biosd_io(int rw, bios_diskinfo_t *bd, u_int off, int nsect, void *buf)
 		 * XXX we believe that all the io is buffered
 		 * by fs routines, so no big reads anyway
 		 */
-		bb = alloca(bbsize);
+		bb = buf0;
 		if (rw != F_READ)
 			bcopy(buf, bb, bbsize);
 	} else
@@ -416,7 +417,7 @@ const char *
 bios_getdisklabel(bios_diskinfo_t *bd, struct disklabel *label)
 {
 	u_int start = 0;
-	char *buf;
+	char buf[DEV_BSIZE];
 	const char *err = NULL;
 	int error;
 
@@ -437,7 +438,6 @@ bios_getdisklabel(bios_diskinfo_t *bd, struct disklabel *label)
 	start = LABELSECTOR + start;
 
 	/* Load BSD disklabel */
-	buf = alloca(DEV_BSIZE);
 #ifdef BIOS_DEBUG
 	if (debug)
 		printf("loading disklabel @ %u\n", start);

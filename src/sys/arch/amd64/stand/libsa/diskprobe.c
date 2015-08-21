@@ -358,9 +358,8 @@ disksum(int blk)
 {
 	struct diskinfo *dip, *dip2;
 	int st, reprobe = 0;
-	char *buf;
+	char buf[DEV_BSIZE];
 
-	buf = alloca(DEV_BSIZE);
 	for (dip = TAILQ_FIRST(&disklist); dip; dip = TAILQ_NEXT(dip, list)) {
 		bios_diskinfo_t *bdi = &dip->bios_info;
 

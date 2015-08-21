@@ -125,7 +125,6 @@ extern struct open_file files[];
 	s = ((b) % ((nh) * (ns))) % (ns);
 
 void	*alloc(u_int);
-void	*alloca(size_t);
 void	free(void *, u_int);
 struct	disklabel;
 char	*getdisklabel(const char *, struct disklabel *);
