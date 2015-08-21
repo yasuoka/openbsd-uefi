@@ -32,8 +32,12 @@
 
 #include <sys/queue.h>
 
+struct efi_diskinfo;
+typedef struct efi_diskinfo *efi_diskinfo_t;
+
 /* All the info on a disk we've found */
 struct diskinfo {
+	efi_diskinfo_t efi_info;
 	bios_diskinfo_t bios_info;
 	struct disklabel disklabel;
 	struct sr_boot_volume *sr_vol;

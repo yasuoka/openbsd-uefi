@@ -19,19 +19,17 @@
 void	 efi_cleanup(void);
 void	 efi_cons_probe (struct consdev *);
 void	 efi_memprobe (void);
+void	 efi_hardprobe (void);
+void	 efi_diskprobe (void);
 void	 efi_cons_init (struct consdev *);
 int	 efi_cons_getc (dev_t);
 void	 efi_cons_putc (dev_t, int);
-int	 efi_cons_getshifts (dev_t);
-int	 efip_strategy (void *, int, daddr32_t, size_t, void *, size_t *);
-int	 efip_open (struct open_file *, ...);
-int	 efip_close (struct open_file *);
-int	 efip_ioctl (struct open_file *, u_long, void *);
-void	 efip_probe (void);
+int	 efi_cons_getshifts(dev_t dev);
 int	 Xvideo_efi(void);
 int	 Xexit_efi(void);
-int	 Xdisk_efi(void);
 void	 efi_makebootargs(void);
+
+int	 Xtest(void);
 
 extern void (*run_i386)(u_long, u_long, int, int, int, int, int, int, int, int)
     __attribute__ ((noreturn));

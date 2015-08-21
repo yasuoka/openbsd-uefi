@@ -28,14 +28,20 @@
 
 #include <sys/param.h>
 #include <sys/types.h>
+#include <sys/disklabel.h>
 #include <libsa.h>
 #include <lib/libsa/ufs.h>
 #include <dev/cons.h>
+
+#include "disk.h"
 #include "efiboot.h"
+#include "efidev.h"
 
 const char version[] = "3.28";
-int	debug = 1;
 
+#ifdef EFI_DEBUG
+int	debug = 0;
+#endif
 
 void (*sa_cleanup)(void) = NULL;
 
@@ -44,7 +50,7 @@ void (*i386_probe1[])(void) = {
 	efi_memprobe
 };
 void (*i386_probe2[])(void) = {
-	efip_probe
+	efi_diskprobe, diskprobe
 };
 
 struct i386_boot_probes probe_list[] = {
@@ -69,7 +75,7 @@ struct fs_ops file_system[] = {
 int nfsys = nitems(file_system);
 
 struct devsw	devsw[] = {
-	{ "EFI", efip_strategy, efip_open, efip_close, efip_ioctl },
+	{ "EFI", efistrategy, efiopen, eficlose, efiioctl },
 #if 0
 	{ "TFTP", tftpstrategy, tftpopen, tftpclose, tftpioctl },
 #endif

@@ -55,11 +55,7 @@ int bootbuf(void *, int);
 const struct cmd_table cmd_machine[] = {
 	{ "boot",	CMDT_CMD, Xboot },
 	{ "comaddr",	CMDT_CMD, Xcomaddr },
-#ifdef EFIBOOT
-	{ "diskinfo",	CMDT_CMD, Xdisk_efi },
-#else
 	{ "diskinfo",	CMDT_CMD, Xdiskinfo },
-#endif
 	{ "memory",	CMDT_CMD, Xmemory },
 #ifdef EFIBOOT
 	{ "video",	CMDT_CMD, Xvideo_efi },
@@ -92,6 +88,9 @@ Xregs(void)
 int
 Xboot(void)
 {
+#ifdef EFIBOOT
+	printf("Not supported yet\n");
+#else
 #ifndef _TEST
 	int dev, part, st;
 	struct diskinfo *dip;
@@ -149,6 +148,7 @@ Xboot(void)
 
 bad:
 	printf("Invalid device!\n");
+#endif
 #endif
 	return 0;
 }

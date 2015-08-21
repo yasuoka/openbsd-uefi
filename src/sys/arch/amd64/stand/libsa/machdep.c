@@ -32,6 +32,10 @@
 #include <machine/apmvar.h>
 #include <machine/biosvar.h>
 
+#ifdef EFIBOOT
+#include "efiboot.h"
+#endif
+
 volatile struct BIOS_regs	BIOS_regs;
 
 #if defined(DEBUG) && !defined(_TEST)
@@ -66,5 +70,9 @@ machdep(void)
 int check_skip_conf(void)
 {
 	/* Return non-zero (skip boot.conf) if Control "shift" key down */
+#ifndef EFIBOOT
 	return (pc_getshifts(0) & 0x04);
+#else
+	return (efi_cons_getshifts(0) & 0x04);
+#endif
 }

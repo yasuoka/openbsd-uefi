@@ -16,46 +16,54 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#include <sys/types.h>
 #include <sys/param.h>
 #include <sys/queue.h>
 #include <dev/cons.h>
-#include <libsa.h>
+#include <sys/disklabel.h>
 #include <cmd.h>
 #include <stand/boot/bootarg.h>
 
+#include "libsa.h"
+#include "disk.h"
+
 #include <efi.h>
+#include <efiapi.h>
 #include <efiprot.h>
 #include <eficonsctl.h>
-#include <efi.h>
 
+#include "efidev.h"
 #include "efiboot.h"
 #include "run_i386.h"
 
 EFI_SYSTEM_TABLE	*ST;
 EFI_BOOT_SERVICES	*BS;
 EFI_RUNTIME_SERVICES	*RS;
-EFI_HANDLE		*IH;
+EFI_HANDLE		 IH, efi_bootdp = NULL;
 EFI_PHYSICAL_ADDRESS	 heap;
+EFI_LOADED_IMAGE	*loadedImage;
 UINTN			 heapsiz = 3 * 1024 * 1024;
 UINTN			 mmap_key;
+static EFI_GUID		 imgdp_guid = { 0xbc62157e, 0x3e33, 0x4fec,
+			  { 0x99, 0x20, 0x2d, 0x3b, 0x36, 0xd7, 0x50, 0xdf }};
 
 static void	 efi_heap_init(void);
 static void	 eif_memprobe_internal(void);
 static void	 efi_video_init(void);
 static void	 efi_video_reset(void);
-static void	 efi_video_bestmode(void);
-
-static void	 hexdump(u_char *, int) __unused;
+static void	 efi_video_bestmode(void) __unused;
+EFI_STATUS	 efi_main(EFI_HANDLE, EFI_SYSTEM_TABLE *);
 
 void (*run_i386)(u_long, u_long, int, int, int, int, int, int, int, int)
     __attribute__ ((noreturn));
 
+extern int bios_bootdev;
 
 EFI_STATUS
 efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *systab)
 {
 	extern char	*progname;
+	EFI_DEVICE_PATH *dp0 = NULL, *dp;
+	EFI_STATUS	 status;
 
 	ST = systab;
 	BS = ST->BootServices;
@@ -64,6 +72,22 @@ efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *systab)
 
 	efi_video_init();
 	efi_heap_init();
+
+	status = BS->HandleProtocol(image, &imgdp_guid, (void **)&dp0);
+	if (status == EFI_SUCCESS) {
+		for (dp = dp0; !IsDevicePathEnd(dp);
+		    dp = NextDevicePathNode(dp)) {
+			if (DevicePathType(dp) == MEDIA_DEVICE_PATH)
+				continue;
+			if (DevicePathSubType(dp) == MEDIA_HARDDRIVE_DP) {
+				bios_bootdev = 0x80;
+				efi_bootdp = dp;
+				printf("OK\n");
+				break;
+			}
+			break;
+		}
+	}
 
 	/* allocate run_i386_start() on heap */
 	if ((run_i386 = alloc(run_i386_size)) == NULL)
@@ -74,9 +98,10 @@ efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *systab)
 	/* sa_cleanup = efi_cleanup; */
 
 	progname = "EFIBOOT";
-	boot(0);
 
-	panic("XXX");
+	boot(bios_bootdev);
+
+	return (EFI_SUCCESS);
 }
 
 void
@@ -91,11 +116,81 @@ efi_cleanup(void)
 }
 
 /***********************************************************************
+ * Disk
+ ***********************************************************************/
+static EFI_GUID blkio_guid = BLOCK_IO_PROTOCOL;
+static EFI_GUID devp_guid = DEVICE_PATH_PROTOCOL;
+struct disklist_lh efi_disklist;
+
+void
+efi_diskprobe(void)
+{
+	int			 i, n = 0, bootdev;
+	UINTN			 sz;
+	EFI_STATUS		 status;
+	EFI_HANDLE		*handles;
+	EFI_BLOCK_IO		*blkio;
+	EFI_BLOCK_IO_MEDIA	*media;
+	struct diskinfo		*di;
+	EFI_DEVICE_PATH		*dp, *dp0;
+
+	TAILQ_INIT(&efi_disklist);
+
+	sz = 0;
+	status = BS->LocateHandle(ByProtocol, &blkio_guid, 0, &sz, 0);
+	if (status == EFI_BUFFER_TOO_SMALL) {
+		handles = alloc(sz);
+		status = BS->LocateHandle(ByProtocol, &blkio_guid, 0, &sz,
+		    handles);
+	}
+	if (EFI_ERROR(status))
+		panic("BS->LocateHandle() returns %d", status);
+
+	for (i = 0; i < sz / sizeof(EFI_HANDLE); i++) {
+		bootdev = 0;
+		blkio = handles[i];
+		status = BS->HandleProtocol(handles[i], &blkio_guid,
+		    (void **)&blkio);
+		if (EFI_ERROR(status))
+			panic("BS->HandleProtocol() returns %d", status);
+
+		media = blkio->Media;
+		if (media->LogicalPartition)
+			continue;
+		di = alloc(sizeof(struct diskinfo));
+		efid_init(di, blkio);
+
+		if (efi_bootdp == NULL)
+			goto next;
+		status = BS->HandleProtocol(handles[i], &devp_guid,
+		    (void **)&dp0);
+		if (EFI_ERROR(status))
+			goto next;
+		for (dp = dp0; !IsDevicePathEnd(dp);
+		    dp = NextDevicePathNode(dp)) {
+			if (memcmp(efi_bootdp, dp, sizeof(EFI_DEVICE_PATH))
+				== 0 &&
+			    memcmp(efi_bootdp, dp, DevicePathNodeLength(dp))
+				== 0) {
+				bootdev = 1;
+				break;
+			}
+		}
+next:
+		if (bootdev)
+			TAILQ_INSERT_HEAD(&efi_disklist, di, list);
+		else
+			TAILQ_INSERT_TAIL(&efi_disklist, di, list);
+		n++;
+	}
+
+	free(handles, sz);
+}
+
+/***********************************************************************
  * Memory
  ***********************************************************************/
 bios_memmap_t		 bios_memmap[64];
-u_int			 cnvmem, extmem;
-volatile struct BIOS_regs	BIOS_regs;	/* used by memprobe.c */
 
 static void
 efi_heap_init(void)
@@ -208,16 +303,6 @@ eif_memprobe_internal(void)
 	}
 	free(mm, siz);
 }
-
-/***********************************************************************
- *
- ***********************************************************************/
-struct diskinfo {
-	EFI_HANDLE		*handle;
-	int			 unit;
-	TAILQ_ENTRY(diskinfo)	 next;
-};
-static TAILQ_HEAD(,diskinfo)	 dskinfoh = TAILQ_HEAD_INITIALIZER(dskinfoh);
 
 /***********************************************************************
  * Console
@@ -352,376 +437,18 @@ efi_cons_putc(dev_t dev, int c)
 int
 efi_cons_getshifts(dev_t dev)
 {
-	return (0);
-}
-
-/***********************************************************************
- *
- ***********************************************************************/
-int
-devopen(struct open_file *f, const char *fname, char **file)
-{
-	struct devsw	*dp = devsw;
-	int		 i, rc = 1;
-
-	*file = (char *)fname;
-	for (i = 0; i < ndevs && rc != 0; dp++, i++) {
-		if ((rc = (*dp->dv_open)(f, file)) == 0) {
-			f->f_dev = dp;
-			return 0;
-		}
-	}
-	if ((f->f_flags & F_NODEV) == 0)
-		f->f_dev = dp;
-
-	return rc;
-}
-
-void
-_rtt(void)
-{
-	printf("Hit any key to reboot\n");
-	efi_cons_getc(0);
-	RS->ResetSystem(EfiResetCold, EFI_SUCCESS, 0, NULL);
-	while (1) { }
-}
-
-void
-devboot(dev_t bootdev, char *p)
-{
-	printf("XXX %s %p\n", __func__, p);
-}
-
-time_t
-getsecs(void)
-{
-	EFI_TIME		t;
-	time_t			r = 0;
-	int			y = 0;
-	int			daytab[][14] = {
-	    { 0, -1, 30, 58, 89, 119, 150, 180, 211, 242, 272, 303, 333, 364 },
-	    { 0, -1, 30, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334, 365 },
-	};
-#define isleap(_y) (((_y) % 4) == 0 && (((_y) % 100) != 0 || ((_y) % 400) == 0))
-
-	ST->RuntimeServices->GetTime(&t, NULL);
-
-	/* Calc days from UNIX epoch */
-	r = (t.Year - 1970) * 365;
-	for (y = 1970; y < t.Year; y++) {
-		if (isleap(y))
-			r++;
-	}
-	r += daytab[isleap(t.Year)? 1 : 0][t.Month] + t.Day;
-
-	/* Calc secs */
-	r *= 60 * 60 * 24;
-	r += ((t.Hour * 60) + t.Minute) * 60 + t.Second;
-	if (-24 * 60 < t.TimeZone && t.TimeZone < 24 * 60)
-		r += t.TimeZone * 60;
-
-	return (r);
-}
-
-int
-cnspeed(dev_t dev, int sp)
-{
-	printf("XXX %s\n", __func__);
-	return (9600);
-}
-
-int
-check_skip_conf(void)
-{
 	/* XXX */
-	return (efi_cons_getshifts(0) & 0x04);
-}
-
-dev_t
-ttydev(char *name)
-{
-	printf("XXX %s\n", __func__);
 	return (0);
 }
 
-char *
-ttyname(int fd)
-{
-	printf("XXX %s\n", __func__);
-	return "pc0";
-}
-
-void
-machdep(void)
-{
-	int			 i, j;
-	struct i386_boot_probes *pr;
-
-	/*
-	 * The list of probe routines is now in conf.c.
-	 */
-	for (i = 0; i < nibprobes; i++) {
-		pr = &probe_list[i];
-		if (pr != NULL) {
-			if (conout != NULL)
-				printf("%s:", pr->name);
-
-			for (j = 0; j < pr->count; j++) {
-				(*(pr->probes)[j])();
-			}
-
-			printf("\n");
-		}
-	}
-}
-
-int
-mdrandom(char *buf, size_t buflen)
-{
-	return (0);
-}
+/* XXX: serial console is not supporte yet */
+int comspeed = 9600;
+int com_addr;
+int com_speed = -1;
 
 /***********************************************************************
- * Paritition
+ * Miscellaneous
  ***********************************************************************/
-static EFI_GUID blkio_guid = BLOCK_IO_PROTOCOL;
-static EFI_GUID devp_guid = DEVICE_PATH_PROTOCOL;
-
-int
-efip_strategy(void *devdata, int rw, daddr32_t blk, size_t size, void *buf,
-    size_t *rsize)
-{
-	EFI_STATUS	 status = -1;
-	EFI_BLOCK_IO	*blkio = devdata;
-	size_t		 nsect;
-
-	nsect = (size + blkio->Media->BlockSize - 1) / blkio->Media->BlockSize;
-	switch (rw) {
-	case F_READ:
-		status = blkio->ReadBlocks(blkio,
-		    blkio->Media->MediaId, blk,
-		    nsect * blkio->Media->BlockSize, buf);
-		if (status != EFI_SUCCESS)
-			goto on_error;
-		break;
-	case F_WRITE:
-		if (blkio->Media->ReadOnly)
-			goto on_error;
-		status = blkio->WriteBlocks(blkio,
-		    blkio->Media->MediaId, blk,
-		    nsect * blkio->Media->BlockSize, buf);
-		if (status != EFI_SUCCESS)
-			goto on_error;
-	}
-	if (rsize != NULL)
-		*rsize = nsect * blkio->Media->BlockSize;
-
-	return (0);
-
-on_error:
-	return (EIO);
-}
-
-int
-efip_open(struct open_file *f, ...)
-{
-	va_list		 args;
-	char		*cp, **file;
-	int		 unit = 0;
-	EFI_BLOCK_IO	*blkio;
-	EFI_STATUS	 status;
-	struct diskinfo *dsk;
-	u_char		 buf[4092];
-	ssize_t		 sz;
-
-	va_start(args, f);
-	cp = *(file = va_arg(args, char **));
-	va_end(args);
-
-	f->f_devdata = NULL;
-	if (strncmp(cp, "part", 4) != 0)
-		return (ENOENT);
-	cp += 4;
-	while ('0' <= *cp && *cp < '9') {
-		unit *= 10;
-		unit += (*cp++) - '0';
-	}
-	if (*cp != ':') {
-		printf("Bad unit number\n");
-		return EUNIT;
-	}
-	cp++;
-	if (*cp != '\0')
-		*file = cp;
-	else
-		f->f_flags |= F_RAW;
-
-	TAILQ_FOREACH(dsk, &dskinfoh, next) {
-		if (dsk->unit == unit)
-			break;
-	}
-	if (dsk == NULL)
-		return (ENOENT);
-
-	status = BS->HandleProtocol(dsk->handle, &blkio_guid, (void **)&blkio);
-	if (status != EFI_SUCCESS)
-		return (EIO);
-
-	efip_strategy(blkio, F_READ, 1, 1, buf, &sz);
-	f->f_devdata = blkio;
-
-	return (0);
-}
-
-int
-efip_close(struct open_file *f)
-{
-	f->f_devdata = NULL;
-	return (0);
-}
-
-int
-efip_ioctl(struct open_file *f, u_long cmd, void *data)
-{
-	return (0);
-}
-
-void
-efip_probe(void)
-{
-	EFI_STATUS	 status;
-	EFI_HANDLE	*h;
-	EFI_DEVICE_PATH	*devp0, *devp;
-	UINTN		 sz;
-	int		 i;
-	struct diskinfo *dsk;
-
-	sz = 0;
-	status = BS->LocateHandle(ByProtocol, &blkio_guid, 0, &sz, 0);
-	if (status == EFI_BUFFER_TOO_SMALL) {
-		h = (EFI_HANDLE)alloc(sz);
-		BS->LocateHandle(ByProtocol, &blkio_guid, 0, &sz, h);
-	}
-
-	for (i = 0; i < sz / sizeof(EFI_HANDLE); i++) {
-		status = BS->HandleProtocol(h[i], &devp_guid, (void **)&devp0);
-		if (EFI_ERROR(status))
-			continue;
-		for (devp = devp0; !IsDevicePathEnd(devp);
-		    devp = NextDevicePathNode(devp)) {
-			if (DevicePathType(devp) != MEDIA_DEVICE_PATH ||
-			    DevicePathSubType(devp) != MEDIA_HARDDRIVE_DP)
-				continue;
-			dsk = alloc(sizeof(struct diskinfo));
-			if (dsk == NULL)
-				panic("diskprobe(): alloc() failed");
-			dsk->unit = i;
-			dsk->handle = h[i];
-			TAILQ_INSERT_TAIL(&dskinfoh, dsk, next);
-			printf(" part%d", i);
-			break;
-		}
-	}
-	free(h, sz);
-}
-
-/***********************************************************************
- * Commands
- ***********************************************************************/
-int
-Xexit_efi(void)
-{
-	BS->Exit(IH, 0, 0, NULL);
-	while (1) { }
-}
-
-int
-Xvideo_efi(void)
-{
-	int	 i, mode = -1;
-	char	*p;
-
-	for (i = 0; i < nitems(efi_video) && efi_video[i].cols > 0; i++) {
-		printf("Mode %d: %d x %d\n", i,
-		    efi_video[i].cols, efi_video[i].rows);
-	}
-	if (cmd.argc == 2) {
-		p = cmd.argv[1];
-		mode = strtol(p, &p, 10);
-	}
-	printf("\nCurrent Mode = %d\n", conout->Mode->Mode);
-	if (0 <= mode && mode < i) {
-		conout->SetMode(conout, mode);
-		efi_video_reset();
-	}
-
-	return (0);
-}
-
-int
-Xdisk_efi(void)
-{
-	EFI_STATUS	 status;
-	EFI_HANDLE	*h;
-	EFI_DEVICE_PATH	*devp0, *devp;
-	char		*p;
-	UINTN		 sz;
-	int		 dnum = -1;
-	HARDDRIVE_DEVICE_PATH
-			*dp;
-
-	printf("OK!\n");
-	sz = 0;
-	status = BS->LocateHandle(ByProtocol, &blkio_guid, 0, &sz, 0);
-	if (status == EFI_BUFFER_TOO_SMALL) {
-		h = (EFI_HANDLE)alloc(sz);
-		BS->LocateHandle(ByProtocol, &blkio_guid, 0, &sz, h);
-	}
-	if (cmd.argc == 2) {
-		p = cmd.argv[1];
-		dnum = strtol(p, &p, 10);
-	}
-
-	if (dnum >= 0 && dnum < sz / sizeof(EFI_HANDLE)) {
-		status = BS->HandleProtocol(h[dnum], &devp_guid, (void **)&devp0);
-		if (EFI_ERROR(status)) {
-			printf("#%d is not available\n");
-			free(h, sz);
-			return (-1);
-		}
-
-		for (devp = devp0; !IsDevicePathEnd(devp);
-		    devp = NextDevicePathNode(devp)) {
-			printf("#%d %d/%d\n", dnum, DevicePathType(devp), DevicePathSubType(devp));
-			if (DevicePathType(devp) != MEDIA_DEVICE_PATH ||
-			    DevicePathSubType(devp) != MEDIA_HARDDRIVE_DP)
-				continue;
-			dp = (HARDDRIVE_DEVICE_PATH *)devp;
-			printf(
-			    "   Partition Number: %ld\n"
-			    "   Partition Start : %ld\n"
-			    "   Partition Size  : %ld\n"
-			    "   Signature       :\n"
-			    , (long)dp->PartitionNumber
-			    , (long)dp->PartitionStart
-			    , (long)dp->PartitionSize
-			    );
-			hexdump(dp->Signature, 16);
-			printf(
-			    "   MBRType         : %s\n"
-			    "   SignatureType   : %s\n"
-			    , (dp->MBRType == MBR_TYPE_PCAT)? "PCAT" : "EFI PARTITION TABLE HEADER"
-			    , (dp->SignatureType == SIGNATURE_TYPE_MBR)? "MBR" : "GUID"
-			    );
-		}
-	} else
-		printf("0-%d is avaiable\n", sz / sizeof(EFI_HANDLE) - 1);
-
-	free(h, sz);
-
-	return (0);
-}
-
 /*
  * ACPI GUID is confusing in UEFI spec.
  * {EFI_,}_ACPI_20_TABLE_GUID or EFI_ACPI_TABLE_GUID means
@@ -731,53 +458,6 @@ static EFI_GUID acpi_guid = ACPI_20_TABLE_GUID;
 static EFI_GUID smbios_guid = SMBIOS_TABLE_GUID;
 
 #define	efi_guidcmp(_a, _b)	memcmp((_a), (_b), sizeof(EFI_GUID))
-
-void dump_diskinfo(void) { }
-int com_addr;
-int com_speed = -1;
-struct diskinfo *bootdev_dip;
-
-int
-biosd_io(int a, bios_diskinfo_t *b, u_int c, int d, void *e)
-{
-	return -1;
-}
-
-int
-bootbuf(void *a, int b)
-{
-	return -1;
-}
-
-
-bios_diskinfo_t *
-bios_dklookup(int x)
-{
-	return NULL;
-}
-
-static void
-hexdump(u_char *p, int len)
-{
-	int		 i;
-	const char	 hexstr[] = "0123456789abcdef";
-	char		 hs[3];
-
-	for (i = 0; i < len; i++) {
-		hs[0] = hexstr[p[i] >> 4];
-		hs[1] = hexstr[p[i] & 0xf];
-		hs[2] = '\0';
-		if (i % 16 == 8)
-			printf(" - ");
-		else if (i % 16 != 0)
-			printf(" ");
-		printf("%s", hs);
-		if (i % 16 == 15)
-			printf("\n");
-	}
-	if (i % 16 != 0)
-		printf("\n");
-}
 
 void
 efi_makebootargs(void)
@@ -841,4 +521,79 @@ efi_makebootargs(void)
 	ei.fb_pixpsl = gopi->PixelsPerScanLine;
 
 	addbootarg(BOOTARG_EFIINFO, sizeof(ei), &ei);
+}
+
+void
+_rtt(void)
+{
+#ifdef EFI_DEBUG
+	printf("Hit any key to reboot\n");
+	efi_cons_getc(0);
+#endif
+	RS->ResetSystem(EfiResetCold, EFI_SUCCESS, 0, NULL);
+	while (1) { }
+}
+
+time_t
+getsecs(void)
+{
+	EFI_TIME		t;
+	time_t			r = 0;
+	int			y = 0;
+	int			daytab[][14] = {
+	    { 0, -1, 30, 58, 89, 119, 150, 180, 211, 242, 272, 303, 333, 364 },
+	    { 0, -1, 30, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334, 365 },
+	};
+#define isleap(_y) (((_y) % 4) == 0 && (((_y) % 100) != 0 || ((_y) % 400) == 0))
+
+	ST->RuntimeServices->GetTime(&t, NULL);
+
+	/* Calc days from UNIX epoch */
+	r = (t.Year - 1970) * 365;
+	for (y = 1970; y < t.Year; y++) {
+		if (isleap(y))
+			r++;
+	}
+	r += daytab[isleap(t.Year)? 1 : 0][t.Month] + t.Day;
+
+	/* Calc secs */
+	r *= 60 * 60 * 24;
+	r += ((t.Hour * 60) + t.Minute) * 60 + t.Second;
+	if (-24 * 60 < t.TimeZone && t.TimeZone < 24 * 60)
+		r += t.TimeZone * 60;
+
+	return (r);
+}
+
+/***********************************************************************
+ * Commands
+ ***********************************************************************/
+int
+Xexit_efi(void)
+{
+	BS->Exit(IH, 0, 0, NULL);
+	while (1) { }
+}
+
+int
+Xvideo_efi(void)
+{
+	int	 i, mode = -1;
+	char	*p;
+
+	for (i = 0; i < nitems(efi_video) && efi_video[i].cols > 0; i++) {
+		printf("Mode %d: %d x %d\n", i,
+		    efi_video[i].cols, efi_video[i].rows);
+	}
+	if (cmd.argc == 2) {
+		p = cmd.argv[1];
+		mode = strtol(p, &p, 10);
+	}
+	printf("\nCurrent Mode = %d\n", conout->Mode->Mode);
+	if (0 <= mode && mode < i) {
+		conout->SetMode(conout, mode);
+		efi_video_reset();
+	}
+
+	return (0);
 }

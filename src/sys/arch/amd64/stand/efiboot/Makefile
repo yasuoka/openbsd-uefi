@@ -2,14 +2,14 @@
 
 S=	${.CURDIR}/../../../..
 SADIR=	${.CURDIR}/..
-
 .include <bsd.own.mk>
 
 PROG=		efiboot.efi
 SRCS=		start.S self_reloc.c
-SRCS+=		efiboot.c
+SRCS+=		efiboot.c efidev.c
 SRCS+=		conf.c run_i386.S
 NOMAN=		#
+SOFTRAID?=	yes
 
 LDSCRIPT=	ldscript.${MACHINE}
 LDFLAGS+=	-nostdlib -T${.CURDIR}/${LDSCRIPT} -Bsymbolic -shared
@@ -19,6 +19,9 @@ COPTS+=		-I${.CURDIR}/../efi/include
 COPTS+=		-I${.CURDIR}/../efi/include/amd64
 COPTS+=		-DNEEDS_HEAP_H -DLINKADDR=${LINKADDR}
 COPTS+=		-DEFIBOOT
+.if ${SOFTRAID:L} == "yes"
+COPTS+=		-DSOFTRAID
+.endif
 AFLAGS+=	-pipe -fPIC
 
 OBJCOPY?=	objcopy
@@ -43,6 +46,9 @@ SRCS+=	alloc.c ctime.c exit.c getchar.c memcmp.c memcpy.c memset.c printf.c \
 SRCS+=	close.c closeall.c cons.c cread.c dev.c disklabel.c dkcksum.c fstat.c \
 	lseek.c open.c read.c readdir.c stat.c
 SRCS+=	ufs.c
+.if ${SOFTRAID:L} == "yes"
+SRCS+=	aes_xts.c explicit_bzero.c hmac_sha1.c pbkdf2.c rijndael.c sha1.c
+.endif
 
 .PATH:	${S}/lib/libz
 SRCS+=	adler32.c crc32.c inflate.c inftrees.c
@@ -51,7 +57,13 @@ SRCS+=	adler32.c crc32.c inflate.c inftrees.c
 SRCS+=	strlcpy.c
 
 .PATH:	${SADIR}/libsa
-SRCS+=	loadfile.c elf64.c elf32.c memprobe.c cmd_i386.c exec_i386.c
+SRCS+=	loadfile.c elf64.c elf32.c memprobe.c cmd_i386.c dev_i386.c exec_i386.c
+SRCS+=	machdep.c diskprobe.c
+SRCS+=	random_amd64.S
+
+.if ${SOFTRAID:L} == "yes"
+SRCS+=	softraid.c
+.endif
 
 CPPFLAGS+=	-DSMALL -DSLOW -DNOBYFOUR -D__INTERNAL_LIBSA_CREAD
 COPTS+=		-I${S}/stand/boot
