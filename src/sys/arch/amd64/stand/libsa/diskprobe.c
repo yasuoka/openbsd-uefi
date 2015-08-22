@@ -67,6 +67,7 @@ diskinfo_init(struct diskinfo *dip)
 {
 	bzero(dip, sizeof(*dip));
 	dip->diskio = biosd_diskio;
+	dip->strategy = biosstrategy;
 }
 
 /* Probe for all BIOS floppies */

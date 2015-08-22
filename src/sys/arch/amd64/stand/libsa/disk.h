@@ -39,6 +39,7 @@ struct diskinfo {
 	struct sr_boot_volume *sr_vol;
 
 	int (*diskio)(int, struct diskinfo *, u_int, int, void *);
+	int (*strategy)(void *, int, daddr32_t, size_t, void *, size_t *);
 
 	dev_t bsddev, bootdev;
 

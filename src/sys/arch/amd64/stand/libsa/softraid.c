@@ -30,7 +30,6 @@
 #include <lib/libsa/rijndael.h>
 
 #include "libsa.h"
-#include "biosdev.h"
 #include "disk.h"
 #include "softraid.h"
 
@@ -355,7 +354,7 @@ sr_strategy(struct sr_boot_volume *bv, int rw, daddr32_t blk, size_t size,
 		blk += bv->sbv_data_blkno;
 
 		/* XXX - If I/O failed we should try another chunk... */
-		return biosstrategy(dip, rw, blk, size, buf, rsize);
+		return dip->strategy(dip, rw, blk, size, buf, rsize);
 
 	} else if (bv->sbv_level == 'C') {
 
@@ -376,7 +375,7 @@ sr_strategy(struct sr_boot_volume *bv, int rw, daddr32_t blk, size_t size,
 		for (i = 0; i < nsect; i++) {
 			blkno = blk + i;
 			bp = ((u_char *)buf) + i * DEV_BSIZE;
-			err = biosstrategy(dip, rw, bv->sbv_data_blkno + blkno,
+			err = dip->strategy(dip, rw, bv->sbv_data_blkno + blkno,
 			    DEV_BSIZE, bp, NULL);
 			if (err != 0)
 				return err;
