@@ -246,9 +246,8 @@ biosd_io(int rw, bios_diskinfo_t *bd, u_int off, int nsect, void *buf)
 {
 	int dev = bd->bios_number;
 	int j, error;
-	void *bb;
+	void *bb, *bb1 = NULL;
 	int bbsize = nsect * DEV_BSIZE;
-	char buf0[DEV_BSIZE];
 
 	if (bd->flags & BDI_EL_TORITO) {	/* It's a CD device */
 		dev &= 0xff;			/* Mask out this flag bit */
@@ -274,7 +273,7 @@ biosd_io(int rw, bios_diskinfo_t *bd, u_int off, int nsect, void *buf)
 		 * XXX we believe that all the io is buffered
 		 * by fs routines, so no big reads anyway
 		 */
-		bb = buf0;
+		bb = bb1 = alloc(bbsize);
 		if (rw != F_READ)
 			bcopy(buf, bb, bbsize);
 	} else
@@ -328,6 +327,8 @@ biosd_io(int rw, bios_diskinfo_t *bd, u_int off, int nsect, void *buf)
 
 	if (bb != buf && rw == F_READ)
 		bcopy(bb, buf, bbsize);
+	if (bb1 != NULL)
+		free(bb1, bbsize);
 
 #ifdef BIOS_DEBUG
 	if (debug) {
