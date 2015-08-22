@@ -82,7 +82,6 @@ efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *systab)
 			if (DevicePathSubType(dp) == MEDIA_HARDDRIVE_DP) {
 				bios_bootdev = 0x80;
 				efi_bootdp = dp;
-				printf("OK\n");
 				break;
 			}
 			break;
