@@ -89,8 +89,6 @@ struct efifb efifb_console;
 int
 efifb_match(struct device *parent, void *cf, void *aux)
 {
-	extern bios_efiinfo_t	*bios_efiinfo;
-
 	if (bios_efiinfo != NULL)
 		return (1);
 
@@ -140,7 +138,6 @@ efifb_rasops_preinit(struct efifb *fb)
 {
 #define bmnum(_x) (fls(_x) - ffs(_x) + 1)
 #define bmpos(_x) (ffs(_x) - 1)
-	extern bios_efiinfo_t	*bios_efiinfo;
 	struct rasops_info	*ri = &fb->rinfo;
 
 	ri->ri_width = bios_efiinfo->fb_width;
@@ -264,7 +261,6 @@ efifb_list_font(void *v, struct wsdisplay_font *font)
 int
 efifb_cnattach(void)
 {
-	extern bios_efiinfo_t	*bios_efiinfo;
 	struct efifb		*fb = &efifb_console;
 	struct rasops_info	*ri = &fb->rinfo;
 	long			 defattr = 0;

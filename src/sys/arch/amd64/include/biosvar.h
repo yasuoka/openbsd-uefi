@@ -252,6 +252,7 @@ bios_diskinfo_t *bios_getdiskinfo(dev_t);
 
 extern u_int bootapiver;
 extern bios_memmap_t *bios_memmap;
+extern bios_efiinfo_t *bios_efiinfo;
 
 #endif /* _KERNEL */
 #endif /* _LOCORE */

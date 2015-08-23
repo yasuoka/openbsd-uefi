@@ -124,7 +124,6 @@ bios_attach(struct device *parent, struct device *self, void *aux)
 	u_int8_t *p;
 	int smbiosrev = 0;
 	struct smbhdr *hdr = NULL;
-	extern bios_efiinfo_t	*bios_efiinfo;	/* XXX */
 
 	if (bios_efiinfo != NULL && bios_efiinfo->config_smbios != 0)
 		hdr = bios_find(PMAP_DIRECT_MAP(
