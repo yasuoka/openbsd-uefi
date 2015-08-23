@@ -137,7 +137,7 @@ acpi_probe(struct device *parent, struct cfdata *match,
 	paddr_t ebda;
 
 	/*
-	 * First try to can the ACPI table passed by parent (EFI BIOS)
+	 * First try to scan the ACPI table passed by parent if any
 	 */
 	if (ba->ba_acpipbase != 0) {
 		if (acpi_scan(&handle, ba->ba_acpipbase, 16) != NULL) {
