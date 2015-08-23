@@ -1,4 +1,4 @@
-/*	$OpenBSD: if_ether.c,v 1.159 2015/07/18 15:51:16 mpi Exp $	*/
+/*	$OpenBSD: if_ether.c,v 1.162 2015/08/19 11:05:33 mpi Exp $	*/
 /*	$NetBSD: if_ether.c,v 1.31 1996/05/11 12:59:58 mycroft Exp $	*/
 
 /*
@@ -93,7 +93,7 @@ int	arpt_down = 20;		/* once declared down, don't send for 20 secs */
 
 void arptfree(struct llinfo_arp *);
 void arptimer(void *);
-struct llinfo_arp *arplookup(u_int32_t, int, int, u_int);
+struct rtentry *arplookup(u_int32_t, int, int, u_int);
 void in_arpinput(struct mbuf *);
 
 LIST_HEAD(, llinfo_arp) llinfo_arp;
@@ -358,8 +358,8 @@ arpresolve(struct ifnet *ifp, struct rtentry *rt0, struct mbuf *m,
 		}
 
 		if ((rt->rt_flags & RTF_LLINFO) == 0) {
-			log(LOG_DEBUG, "arpresolve: %s: route contains no arp"
-			    " information\n", inet_ntop(AF_INET,
+			log(LOG_DEBUG, "%s: %s: route contains no arp"
+			    " information\n", __func__, inet_ntop(AF_INET,
 				&satosin(rt_key(rt))->sin_addr, addr,
 				sizeof(addr)));
 			m_freem(m);
@@ -368,16 +368,16 @@ arpresolve(struct ifnet *ifp, struct rtentry *rt0, struct mbuf *m,
 
 		la = (struct llinfo_arp *)rt->rt_llinfo;
 		if (la == NULL)
-			log(LOG_DEBUG, "arpresolve: %s: route without link "
-			    "local address\n", inet_ntop(AF_INET,
+			log(LOG_DEBUG, "%s: %s: route without link "
+			    "local address\n", __func__, inet_ntop(AF_INET,
 				&satosin(dst)->sin_addr, addr, sizeof(addr)));
 	} else {
-		if ((la = arplookup(satosin(dst)->sin_addr.s_addr, 1, 0,
+		if ((rt = arplookup(satosin(dst)->sin_addr.s_addr, 1, 0,
 		    ifp->if_rdomain)) != NULL)
-			rt = la->la_rt;
+			la = ((struct llinfo_arp *)rt->rt_llinfo);
 		else
-			log(LOG_DEBUG,
-			    "arpresolve: %s: can't allocate llinfo\n",
+			log(LOG_DEBUG, "%s: %s: can't allocate llinfo\n",
+			    __func__,
 			    inet_ntop(AF_INET, &satosin(dst)->sin_addr,
 				addr, sizeof(addr)));
 	}
@@ -434,7 +434,7 @@ arpresolve(struct ifnet *ifp, struct rtentry *rt0, struct mbuf *m,
 #ifdef	DIAGNOSTIC
 	if (rt->rt_expire == 0) {
 		/* This should never happen. (Should it? -gwr) */
-		printf("arpresolve: unresolved and rt_expire == 0\n");
+		printf("%s: unresolved and rt_expire == 0\n", __func__);
 		/* Set expiration time to now (expired). */
 		rt->rt_expire = time_second;
 	}
@@ -633,46 +633,48 @@ in_arpinput(struct mbuf *m)
 		itaddr = myaddr;
 		goto reply;
 	}
-	la = arplookup(isaddr.s_addr, itaddr.s_addr == myaddr.s_addr, 0,
+	rt = arplookup(isaddr.s_addr, itaddr.s_addr == myaddr.s_addr, 0,
 	    rtable_l2(m->m_pkthdr.ph_rtableid));
-	if (la && (rt = la->la_rt) && (sdl = SDL(rt->rt_gateway))) {
+	if (rt != NULL && (sdl = SDL(rt->rt_gateway)) != NULL) {
+		la = (struct llinfo_arp *)rt->rt_llinfo;
 		if (sdl->sdl_alen) {
-		    if (memcmp(ea->arp_sha, LLADDR(sdl), sdl->sdl_alen)) {
-			if (rt->rt_flags &
-			    (RTF_PERMANENT_ARP|RTF_LOCAL)) {
-				inet_ntop(AF_INET, &isaddr, addr, sizeof(addr));
-				log(LOG_WARNING,
-				   "arp: attempt to overwrite permanent "
-				   "entry for %s by %s on %s\n", addr,
-				   ether_sprintf(ea->arp_sha),
-				   ifp->if_xname);
-				goto out;
-			} else if (rt->rt_ifp != ifp) {
-#if NCARP > 0
-				if (ifp->if_type != IFT_CARP)
-#endif
-				{
-					inet_ntop(AF_INET, &isaddr,
-					    addr, sizeof(addr));
-					log(LOG_WARNING,
-					   "arp: attempt to overwrite entry for"
-					   " %s on %s by %s on %s\n", addr,
-					   rt->rt_ifp->if_xname,
+			if (memcmp(ea->arp_sha, LLADDR(sdl), sdl->sdl_alen)) {
+				if (rt->rt_flags &
+				    (RTF_PERMANENT_ARP|RTF_LOCAL)) {
+					inet_ntop(AF_INET, &isaddr, addr,
+					    sizeof(addr));
+					log(LOG_WARNING, "arp: attempt to"
+					   " overwrite permanent entry for %s"
+					   " by %s on %s\n", addr,
 					   ether_sprintf(ea->arp_sha),
 					   ifp->if_xname);
+					goto out;
+				} else if (rt->rt_ifp != ifp) {
+#if NCARP > 0
+					if (ifp->if_type != IFT_CARP)
+#endif
+					{
+						inet_ntop(AF_INET, &isaddr,
+						    addr, sizeof(addr));
+						log(LOG_WARNING, "arp: attempt"
+						   " to overwrite entry for"
+						   " %s on %s by %s on %s\n",
+						   addr, rt->rt_ifp->if_xname,
+						   ether_sprintf(ea->arp_sha),
+						   ifp->if_xname);
+					}
+					goto out;
+				} else {
+					inet_ntop(AF_INET, &isaddr, addr,
+					    sizeof(addr));
+					log(LOG_INFO, "arp info overwritten for"
+					   " %s by %s on %s\n", addr,
+					   ether_sprintf(ea->arp_sha),
+					   ifp->if_xname);
+					rt->rt_expire = 1;/* no longer static */
 				}
-				goto out;
-			} else {
-				inet_ntop(AF_INET, &isaddr, addr, sizeof(addr));
-				log(LOG_INFO,
-				   "arp info overwritten for %s by %s on %s\n",
-				   addr,
-				   ether_sprintf(ea->arp_sha),
-				   ifp->if_xname);
-				rt->rt_expire = 1; /* no longer static */
-			}
 			changed = 1;
-		    }
+			}
 		} else if (rt->rt_ifp != ifp &&
 #if NBRIDGE > 0
 		    !SAME_BRIDGE(ifp->if_bridgeport,
@@ -730,11 +732,10 @@ out:
 		memcpy(ea->arp_tha, ea->arp_sha, sizeof(ea->arp_sha));
 		memcpy(ea->arp_sha, enaddr, sizeof(ea->arp_sha));
 	} else {
-		la = arplookup(itaddr.s_addr, 0, SIN_PROXY,
+		rt = arplookup(itaddr.s_addr, 0, SIN_PROXY,
 		    rtable_l2(m->m_pkthdr.ph_rtableid));
-		if (la == NULL)
+		if (rt == NULL)
 			goto out;
-		rt = la->la_rt;
 		if (rt->rt_ifp->if_type == IFT_CARP && ifp->if_type != IFT_CARP)
 			goto out;
 		memcpy(ea->arp_tha, ea->arp_sha, sizeof(ea->arp_sha));
@@ -790,7 +791,7 @@ arptfree(struct llinfo_arp *la)
 /*
  * Lookup or enter a new address in arptab.
  */
-struct llinfo_arp *
+struct rtentry *
 arplookup(u_int32_t addr, int create, int proxy, u_int tableid)
 {
 	struct rtentry *rt;
@@ -806,7 +807,7 @@ arplookup(u_int32_t addr, int create, int proxy, u_int tableid)
 
 	rt = rtalloc((struct sockaddr *)&sin, flags, tableid);
 	if (rt == NULL)
-		return (0);
+		return (NULL);
 	rt->rt_refcnt--;
 	if ((rt->rt_flags & RTF_GATEWAY) || (rt->rt_flags & RTF_LLINFO) == 0 ||
 	    rt->rt_gateway->sa_family != AF_LINK) {
@@ -816,9 +817,9 @@ arplookup(u_int32_t addr, int create, int proxy, u_int tableid)
 				rtdeletemsg(rt, tableid);
 			}
 		}
-		return (0);
+		return (NULL);
 	}
-	return ((struct llinfo_arp *)rt->rt_llinfo);
+	return (rt);
 }
 
 /*
@@ -827,13 +828,15 @@ arplookup(u_int32_t addr, int create, int proxy, u_int tableid)
 int
 arpproxy(struct in_addr in, u_int rdomain)
 {
+	struct rtentry *rt;
 	struct llinfo_arp *la;
 	struct ifnet *ifp;
 	int found = 0;
 
-	la = arplookup(in.s_addr, 0, SIN_PROXY, rdomain);
-	if (la == NULL)
+	rt = arplookup(in.s_addr, 0, SIN_PROXY, rdomain);
+	if (rt == NULL)
 		return (0);
+	la = ((struct llinfo_arp *)rt->rt_llinfo);
 
 	TAILQ_FOREACH(ifp, &ifnet, if_list) {
 		if (ifp->if_rdomain != rdomain)

@@ -1,4 +1,4 @@
-/*	$OpenBSD: uvm_pmemrange.c,v 1.46 2015/06/27 21:25:55 miod Exp $	*/
+/*	$OpenBSD: uvm_pmemrange.c,v 1.48 2015/08/21 16:04:35 visa Exp $	*/
 
 /*
  * Copyright (c) 2009, 2010 Ariane van der Steldt <ariane@stack.nl>
@@ -1244,12 +1244,10 @@ uvm_pmr_assertvalid(struct uvm_pmemrange *pmr)
 			/*
 			 * Free pages are:
 			 * - not wired
-			 * - not loaned
 			 * - have no vm_anon
 			 * - have no uvm_object
 			 */
 			KASSERT(i[lcv].wire_count == 0);
-			KASSERT(i[lcv].loan_count == 0);
 			KASSERT(i[lcv].uanon == (void*)0xdeadbeef ||
 			    i[lcv].uanon == NULL);
 			KASSERT(i[lcv].uobject == (void*)0xdeadbeef ||
@@ -1557,7 +1555,7 @@ uvm_pmr_isfree(struct vm_page *pg)
 	r = RB_NFIND(uvm_pmr_addr, &pmr->addr, pg);
 	if (r == NULL)
 		r = RB_MAX(uvm_pmr_addr, &pmr->addr);
-	else
+	else if (r != pg)
 		r = RB_PREV(uvm_pmr_addr, &pmr->addr, r);
 	if (r == NULL)
 		return 0; /* Empty tree. */

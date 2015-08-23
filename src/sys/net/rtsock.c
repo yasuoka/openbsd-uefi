@@ -1,4 +1,4 @@
-/*	$OpenBSD: rtsock.c,v 1.166 2015/07/18 21:58:06 mpi Exp $	*/
+/*	$OpenBSD: rtsock.c,v 1.168 2015/08/19 13:27:38 bluhm Exp $	*/
 /*	$NetBSD: rtsock.c,v 1.18 1996/03/29 00:32:10 cgd Exp $	*/
 
 /*
@@ -595,14 +595,14 @@ route_output(struct mbuf *m, ...)
 		}
 		error = rtrequest1(rtm->rtm_type, &info, prio, &saved_nrt,
 		    tableid);
-		if (error == 0 && saved_nrt) {
+		if (error == 0) {
 			rt_setmetrics(rtm->rtm_inits, &rtm->rtm_rmx,
 			    &saved_nrt->rt_rmx);
-			saved_nrt->rt_refcnt--;
 			/* write back the priority the kernel used */
 			rtm->rtm_priority = saved_nrt->rt_priority & RTP_MASK;
 			rtm->rtm_index = saved_nrt->rt_ifp->if_index;
 			rtm->rtm_flags = saved_nrt->rt_flags;
+			rtfree(saved_nrt);
 		}
 		break;
 	case RTM_DELETE:

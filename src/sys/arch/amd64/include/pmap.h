@@ -1,4 +1,4 @@
-/*	$OpenBSD: pmap.h,v 1.57 2015/06/29 02:54:51 mlarkin Exp $	*/
+/*	$OpenBSD: pmap.h,v 1.59 2015/08/22 07:19:03 mlarkin Exp $	*/
 /*	$NetBSD: pmap.h,v 1.1 2003/04/26 18:39:46 fvdl Exp $	*/
 
 /*
@@ -70,7 +70,6 @@
 
 #ifndef _LOCORE
 #ifdef _KERNEL
-#include <sys/mman.h>
 #include <machine/cpufunc.h>
 #include <machine/segments.h>
 #endif /* _KERNEL */
@@ -153,7 +152,6 @@
  * the following defines give the virtual addresses of various MMU
  * data structures:
  * PTE_BASE: the base VA of the linear PTE mappings
- * PTD_BASE: the base VA of the recursive mapping of the PTD
  * PDP_PDE: the VA of the PDE that points back to the PDP
  *
  */

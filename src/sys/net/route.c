@@ -1,4 +1,4 @@
-/*	$OpenBSD: route.c,v 1.217 2015/07/18 15:51:16 mpi Exp $	*/
+/*	$OpenBSD: route.c,v 1.224 2015/08/20 12:39:43 mpi Exp $	*/
 /*	$NetBSD: route.c,v 1.14 1996/02/13 22:00:46 christos Exp $	*/
 
 /*
@@ -301,9 +301,11 @@ struct rtentry *
 rtalloc(struct sockaddr *dst, int flags, unsigned int tableid)
 {
 	struct rtentry		*rt;
-	struct rtentry		*newrt = 0;
+	struct rtentry		*newrt = NULL;
 	struct rt_addrinfo	 info;
-	int			 s = splsoftnet(), err = 0, msgtype = RTM_MISS;
+	int			 s, error = 0, msgtype = RTM_MISS;
+
+	s = splsoftnet();
 
 	bzero(&info, sizeof(info));
 	info.rti_info[RTAX_DST] = dst;
@@ -312,14 +314,15 @@ rtalloc(struct sockaddr *dst, int flags, unsigned int tableid)
 	if (rt != NULL) {
 		newrt = rt;
 		if ((rt->rt_flags & RTF_CLONING) && ISSET(flags, RT_RESOLVE)) {
-			err = rtrequest1(RTM_RESOLVE, &info, RTP_DEFAULT,
+			error = rtrequest1(RTM_RESOLVE, &info, RTP_DEFAULT,
 			    &newrt, tableid);
-			if (err) {
+			if (error) {
 				newrt = rt;
 				rt->rt_refcnt++;
 				goto miss;
 			}
-			if ((rt = newrt) && (rt->rt_flags & RTF_XRESOLVE)) {
+			rt = newrt;
+			if (rt->rt_flags & RTF_XRESOLVE) {
 				msgtype = RTM_RESOLVE;
 				goto miss;
 			}
@@ -328,18 +331,12 @@ rtalloc(struct sockaddr *dst, int flags, unsigned int tableid)
 		} else
 			rt->rt_refcnt++;
 	} else {
-		if (dst->sa_family != PF_KEY)
-			rtstat.rts_unreach++;
-	/*
-	 * IP encapsulation does lots of lookups where we don't need nor want
-	 * the RTM_MISSes that would be generated.  It causes RTM_MISS storms
-	 * sent upward breaking user-level routing queries.
-	 */
+		rtstat.rts_unreach++;
 miss:
-		if (ISSET(flags, RT_REPORT) && dst->sa_family != PF_KEY) {
+		if (ISSET(flags, RT_REPORT)) {
 			bzero((caddr_t)&info, sizeof(info));
 			info.rti_info[RTAX_DST] = dst;
-			rt_missmsg(msgtype, &info, 0, NULL, err, tableid);
+			rt_missmsg(msgtype, &info, 0, NULL, error, tableid);
 		}
 	}
 	splx(s);
@@ -379,7 +376,8 @@ rtfree(struct rtentry *rt)
 {
 	struct ifaddr	*ifa;
 
-	KASSERT(rt != NULL);
+	if (rt == NULL)
+		return;
 
 	rt->rt_refcnt--;
 
@@ -515,7 +513,7 @@ create:
 			rt = NULL;
 			error = rtrequest1(RTM_ADD, &info, RTP_DEFAULT, &rt,
 			    rdomain);
-			if (rt != NULL)
+			if (error == 0)
 				flags = rt->rt_flags;
 			stat = &rtstat.rts_dynamic;
 		} else {
@@ -665,14 +663,18 @@ ifa_ifwithroute(int flags, struct sockaddr *dst, struct sockaddr *gateway,
 		struct rtentry	*rt = rtalloc(gateway, 0, rtableid);
 		if (rt == NULL)
 			return (NULL);
-		rt->rt_refcnt--;
 		/* The gateway must be local if the same address family. */
 		if ((rt->rt_flags & RTF_GATEWAY) &&
-		    rt_key(rt)->sa_family == dst->sa_family)
+		    rt_key(rt)->sa_family == dst->sa_family) {
+			rtfree(rt);
 			return (NULL);
+		}
 		ifa = rt->rt_ifa;
-		if (ifa == NULL || ifa->ifa_ifp == NULL)
+		if (ifa == NULL || ifa->ifa_ifp == NULL) {
+			rtfree(rt);
 			return (NULL);
+		}
+		rtfree(rt);
 	}
 	if (ifa->ifa_addr->sa_family != dst->sa_family) {
 		struct ifaddr	*oifa = ifa;
@@ -1147,7 +1149,7 @@ int
 rt_ifa_add(struct ifaddr *ifa, int flags, struct sockaddr *dst)
 {
 	struct ifnet		*ifp = ifa->ifa_ifp;
-	struct rtentry		*rt, *nrt = NULL;
+	struct rtentry		*rt;
 	struct sockaddr_rtlabel	 sa_rl;
 	struct rt_addrinfo	 info;
 	u_short			 rtableid = ifp->if_rdomain;
@@ -1179,9 +1181,8 @@ rt_ifa_add(struct ifaddr *ifa, int flags, struct sockaddr *dst)
 	if (flags & (RTF_LOCAL|RTF_BROADCAST))
 		prio = RTP_LOCAL;
 
-	error = rtrequest1(RTM_ADD, &info, prio, &nrt, rtableid);
-	if (error == 0 && (rt = nrt) != NULL) {
-		rt->rt_refcnt--;
+	error = rtrequest1(RTM_ADD, &info, prio, &rt, rtableid);
+	if (error == 0) {
 		if (rt->rt_ifa != ifa) {
 			printf("%s: wrong ifa (%p) was (%p)\n", __func__,
 			    ifa, rt->rt_ifa);
@@ -1201,8 +1202,9 @@ rt_ifa_add(struct ifaddr *ifa, int flags, struct sockaddr *dst)
 		 * userland that a new address has been added.
 		 */
 		if (flags & RTF_LOCAL)
-			rt_sendaddrmsg(nrt, RTM_NEWADDR);
-		rt_sendmsg(nrt, RTM_ADD, rtableid);
+			rt_sendaddrmsg(rt, RTM_NEWADDR);
+		rt_sendmsg(rt, RTM_ADD, rtableid);
+		rtfree(rt);
 	}
 	return (error);
 }
@@ -1211,7 +1213,7 @@ int
 rt_ifa_del(struct ifaddr *ifa, int flags, struct sockaddr *dst)
 {
 	struct ifnet		*ifp = ifa->ifa_ifp;
-	struct rtentry		*rt, *nrt = NULL;
+	struct rtentry		*rt;
 	struct mbuf		*m = NULL;
 	struct sockaddr		*deldst;
 	struct rt_addrinfo	 info;
@@ -1236,6 +1238,7 @@ rt_ifa_del(struct ifaddr *ifa, int flags, struct sockaddr *dst)
 	}
 	if ((rt = rtalloc(dst, 0, rtableid)) != NULL) {
 		rt->rt_refcnt--;
+#ifndef ART
 		/* try to find the right route */
 		while (rt && rt->rt_ifa != ifa)
 			rt = (struct rtentry *)
@@ -1246,6 +1249,7 @@ rt_ifa_del(struct ifaddr *ifa, int flags, struct sockaddr *dst)
 			return (flags & RTF_HOST ? EHOSTUNREACH
 						: ENETUNREACH);
 		}
+#endif
 	}
 
 	memset(&info, 0, sizeof(info));
@@ -1262,11 +1266,11 @@ rt_ifa_del(struct ifaddr *ifa, int flags, struct sockaddr *dst)
 	if (flags & (RTF_LOCAL|RTF_BROADCAST))
 		prio = RTP_LOCAL;
 
-	error = rtrequest1(RTM_DELETE, &info, prio, &nrt, rtableid);
-	if (error == 0 && (rt = nrt) != NULL) {
-		rt_sendmsg(nrt, RTM_DELETE, rtableid);
+	error = rtrequest1(RTM_DELETE, &info, prio, &rt, rtableid);
+	if (error == 0) {
+		rt_sendmsg(rt, RTM_DELETE, rtableid);
 		if (flags & RTF_LOCAL)
-			rt_sendaddrmsg(nrt, RTM_DELADDR);
+			rt_sendaddrmsg(rt, RTM_DELADDR);
 		if (rt->rt_refcnt <= 0) {
 			rt->rt_refcnt++;
 			rtfree(rt);

@@ -1,4 +1,4 @@
-/*	$OpenBSD: nd6.c,v 1.143 2015/07/16 15:31:35 mpi Exp $	*/
+/*	$OpenBSD: nd6.c,v 1.145 2015/08/19 13:27:38 bluhm Exp $	*/
 /*	$KAME: nd6.c,v 1.280 2002/06/08 19:52:07 itojun Exp $	*/
 
 /*
@@ -122,7 +122,7 @@ nd6_init(void)
 	static int nd6_init_done = 0;
 
 	if (nd6_init_done) {
-		log(LOG_NOTICE, "nd6_init called more than once(ignored)\n");
+		log(LOG_NOTICE, "%s called more than once\n", __func__);
 		return;
 	}
 
@@ -190,9 +190,8 @@ nd6_setmtu0(struct ifnet *ifp, struct nd_ifinfo *ndi)
 	 * log to the case of changing the MTU, not initializing it.
 	 */
 	if (omaxmtu >= IPV6_MMTU && ndi->maxmtu < IPV6_MMTU) {
-		log(LOG_NOTICE, "nd6_setmtu0: "
-		    "new link MTU on %s (%lu) is too small for IPv6\n",
-		    ifp->if_xname, (unsigned long)ndi->maxmtu);
+		log(LOG_NOTICE, "%s: link MTU on %s (%lu) too small for IPv6\n",
+		    __func__, ifp->if_xname, (unsigned long)ndi->maxmtu);
 	}
 }
 
@@ -647,7 +646,7 @@ nd6_lookup(struct in6_addr *addr6, int create, struct ifnet *ifp,
 	if (!rt) {
 		if (create && ifp) {
 			struct rt_addrinfo info;
-			int e;
+			int error;
 
 			/*
 			 * If no route is available and create is set,
@@ -672,19 +671,9 @@ nd6_lookup(struct in6_addr *addr6, int create, struct ifnet *ifp,
 			info.rti_info[RTAX_DST] = sin6tosa(&sin6);
 			info.rti_info[RTAX_GATEWAY] =
 			    (struct sockaddr *)ifp->if_sadl;
-			if ((e = rtrequest1(RTM_ADD, &info, RTP_CONNECTED,
-			    &rt, rtableid)) != 0) {
-#if 0
-				char ip[INET6_ADDRSTRLEN];
-				log(LOG_ERR,
-				    "nd6_lookup: failed to add route for a "
-				    "neighbor(%s), errno=%d\n",
-				    inet_ntop(AF_INET6, addr6, ip, sizeof(ip)),
-				    e);
-#endif
-				return (NULL);
-			}
-			if (rt == NULL)
+			error = rtrequest1(RTM_ADD, &info, RTP_CONNECTED, &rt,
+			    rtableid);
+			if (error)
 				return (NULL);
 			if (rt->rt_llinfo) {
 				struct llinfo_nd6 *ln =
@@ -712,8 +701,8 @@ nd6_lookup(struct in6_addr *addr6, int create, struct ifnet *ifp,
 	    (ifp && rt->rt_ifa->ifa_ifp != ifp)) {
 		if (create) {
 			char addr[INET6_ADDRSTRLEN];
-			nd6log((LOG_DEBUG,
-			    "nd6_lookup: failed to lookup %s (if = %s)\n",
+			nd6log((LOG_DEBUG, "%s: failed to lookup %s (if=%s)\n",
+			    __func__,
 			    inet_ntop(AF_INET6, addr6, addr, sizeof(addr)),
 			    ifp ? ifp->if_xname : "unspec"));
 		}
@@ -1625,9 +1614,8 @@ nd6_output(struct ifnet *ifp, struct mbuf *m0, struct sockaddr_in6 *dst,
 		    !(ND_IFINFO(ifp)->flags & ND6_IFF_PERFORMNUD)) {
 			char addr[INET6_ADDRSTRLEN];
 
-			log(LOG_DEBUG,
-			    "nd6_output: can't allocate llinfo for %s "
-			    "(ln=%p, rt=%p)\n",
+			log(LOG_DEBUG, "%s: can't allocate llinfo for %s "
+			    "(ln=%p, rt=%p)\n", __func__,
 			    inet_ntop(AF_INET6, &dst->sin6_addr,
 				addr, sizeof(addr)),
 			    ln, rt);
@@ -1758,7 +1746,7 @@ nd6_storelladdr(struct ifnet *ifp, struct rtentry *rt0, struct mbuf *m,
 	}
 
 	if (rt->rt_gateway->sa_family != AF_LINK) {
-		printf("nd6_storelladdr: something odd happens\n");
+		printf("%s: something odd happens\n", __func__);
 		m_freem(m);
 		return (EINVAL);
 	}

@@ -1,4 +1,4 @@
-/*	$OpenBSD: if.c,v 1.356 2015/07/29 00:04:03 rzalamena Exp $	*/
+/*	$OpenBSD: if.c,v 1.360 2015/08/18 08:48:36 mpi Exp $	*/
 /*	$NetBSD: if.c,v 1.35 1996/05/07 05:26:04 thorpej Exp $	*/
 
 /*
@@ -471,6 +471,9 @@ if_input(struct ifnet *ifp, struct mbuf_list *ml)
 {
 	struct mbuf *m;
 	size_t ibytes = 0;
+#if NBPFILTER > 0
+	caddr_t if_bpf;
+#endif
 
 	MBUF_LIST_FOREACH(ml, m) {
 		m->m_pkthdr.ph_ifidx = ifp->if_index;
@@ -482,11 +485,10 @@ if_input(struct ifnet *ifp, struct mbuf_list *ml)
 	ifp->if_ibytes += ibytes;
 
 #if NBPFILTER > 0
-	if (ifp->if_bpf) {
-		KERNEL_LOCK();
+	if_bpf = ifp->if_bpf;
+	if (if_bpf) {
 		MBUF_LIST_FOREACH(ml, m)
-			bpf_mtap_ether(ifp->if_bpf, m, BPF_DIRECTION_IN);
-		KERNEL_UNLOCK();
+			bpf_mtap_ether(if_bpf, m, BPF_DIRECTION_IN);
 	}
 #endif
 
@@ -538,6 +540,8 @@ if_input_process(void *xmq)
 			if ((*ifih->ifih_input)(ifp, m))
 				break;
 		}
+		if (ifih == NULL)
+			m_freem(m);
 	}
 	splx(s);
 	KERNEL_UNLOCK();
@@ -1310,11 +1314,11 @@ ifioctl(struct socket *so, u_long cmd, caddr_t data, struct proc *p)
 		case AF_INET6:
 			s = splsoftnet();
 			if (cmd == SIOCIFAFATTACH)
-				in6_ifattach(ifp);
+				error = in6_ifattach(ifp);
 			else
 				in6_ifdetach(ifp);
 			splx(s);
-			return (0);
+			return (error);
 #endif /* INET6 */
 		default:
 			return (EAFNOSUPPORT);
@@ -1378,8 +1382,10 @@ ifioctl(struct socket *so, u_long cmd, caddr_t data, struct proc *p)
 #ifdef INET6
 		if (ISSET(ifr->ifr_flags, IFXF_AUTOCONF6)) {
 			s = splsoftnet();
-			in6_ifattach(ifp);
+			error = in6_ifattach(ifp);
 			splx(s);
+			if (error != 0)
+				return (error);
 		}
 
 		if ((ifr->ifr_flags & IFXF_AUTOCONF6) &&
