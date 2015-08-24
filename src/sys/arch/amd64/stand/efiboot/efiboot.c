@@ -489,38 +489,39 @@ efi_makebootargs(void)
 	/*
 	 * Frame buffer
 	 */
-	efi_video_bestmode();
 	status = BS->LocateProtocol(&GraphicsOutputGUID, NULL, (void **)&gop);
-	if (EFI_ERROR(status))
-		panic("could not find EFI_GRAPHICS_OUTPUT_PROTOCOL");
-	gopi = gop->Mode->Info;
-	switch (gopi->PixelFormat) {
-	case PixelBlueGreenRedReserved8BitPerColor:
-		ei.fb_red_mask      = 0x00ff0000;
-		ei.fb_green_mask    = 0x0000ff00;
-		ei.fb_blue_mask     = 0x000000ff;
-		ei.fb_reserved_mask = 0xff000000;
-		break;
-	case PixelRedGreenBlueReserved8BitPerColor:
-		ei.fb_red_mask      = 0x000000ff;
-		ei.fb_green_mask    = 0x0000ff00;
-		ei.fb_blue_mask     = 0x00ff0000;
-		ei.fb_reserved_mask = 0xff000000;
-		break;
-	case PixelBitMask:
-		ei.fb_red_mask = gopi->PixelInformation.RedMask;
-		ei.fb_green_mask = gopi->PixelInformation.GreenMask;
-		ei.fb_blue_mask = gopi->PixelInformation.BlueMask;
-		ei.fb_reserved_mask = gopi->PixelInformation.ReservedMask;
-		break;
-	default:
-		break;
+	if (!EFI_ERROR(status)) {
+		efi_video_bestmode();
+		gopi = gop->Mode->Info;
+		switch (gopi->PixelFormat) {
+		case PixelBlueGreenRedReserved8BitPerColor:
+			ei.fb_red_mask      = 0x00ff0000;
+			ei.fb_green_mask    = 0x0000ff00;
+			ei.fb_blue_mask     = 0x000000ff;
+			ei.fb_reserved_mask = 0xff000000;
+			break;
+		case PixelRedGreenBlueReserved8BitPerColor:
+			ei.fb_red_mask      = 0x000000ff;
+			ei.fb_green_mask    = 0x0000ff00;
+			ei.fb_blue_mask     = 0x00ff0000;
+			ei.fb_reserved_mask = 0xff000000;
+			break;
+		case PixelBitMask:
+			ei.fb_red_mask = gopi->PixelInformation.RedMask;
+			ei.fb_green_mask = gopi->PixelInformation.GreenMask;
+			ei.fb_blue_mask = gopi->PixelInformation.BlueMask;
+			ei.fb_reserved_mask =
+			    gopi->PixelInformation.ReservedMask;
+			break;
+		default:
+			break;
+		}
+		ei.fb_addr = gop->Mode->FrameBufferBase;
+		ei.fb_size = gop->Mode->FrameBufferSize;
+		ei.fb_height = gopi->VerticalResolution;
+		ei.fb_width = gopi->HorizontalResolution;
+		ei.fb_pixpsl = gopi->PixelsPerScanLine;
 	}
-	ei.fb_addr = gop->Mode->FrameBufferBase;
-	ei.fb_size = gop->Mode->FrameBufferSize;
-	ei.fb_height = gopi->VerticalResolution;
-	ei.fb_width = gopi->HorizontalResolution;
-	ei.fb_pixpsl = gopi->PixelsPerScanLine;
 
 	addbootarg(BOOTARG_EFIINFO, sizeof(ei), &ei);
 }
