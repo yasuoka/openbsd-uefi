@@ -36,7 +36,8 @@
 
 u_int cnvmem, extmem;		/* XXX - compatibility */
 
-
+bios_memmap_t bios_memmap[64];	/* This is easier */
+#ifndef EFIBOOT
 /*
  * Check gateA20
  *
@@ -295,7 +296,6 @@ badprobe(bios_memmap_t *mp)
 	return ++mp;
 }
 
-bios_memmap_t bios_memmap[64];	/* This is easier */
 #ifndef _TEST
 void
 memprobe(void)
@@ -375,6 +375,7 @@ memprobe(void)
 	/* Check if gate A20 is on */
 	printf("a20=o%s] ", checkA20()? "n" : "ff!");
 }
+#endif
 #endif
 
 void
