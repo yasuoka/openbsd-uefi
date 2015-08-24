@@ -79,7 +79,7 @@ Revision History
         #endif
     #endif
 #endif
-#endif	/* __FreeBSD__ */
+#endif	/* __FreeBSD__ || __OpenBSD__ */
 
 //
 // Basic EFI types of various widths
@@ -263,7 +263,7 @@ typedef uint64_t   UINTN;
 #else
 #define INTERFACE_DECL(x) typedef struct x
 #endif
-#endif	/* __FreeBSD__ */
+#endif	/* __FreeBSD__ || __OpenBSD__ */
 
 #if _MSC_EXTENSIONS
 #pragma warning ( disable : 4731 )  // Suppress warnings about modification of EBP

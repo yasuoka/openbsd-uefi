@@ -7,7 +7,6 @@ EFIDIR=		${.CURDIR}/../../efi
 OBJCOPY?=	objcopy
 OBJDUMP?=	objdump
 
-LDSCRIPT=	ldscript.${MACHINE}
 LDFLAGS+=	-nostdlib -T${.CURDIR}/../${LDSCRIPT} -Bsymbolic -shared
 
 COPTS+=		-DEFIBOOT -DNEEDS_HEAP_H -DLINKADDR=${LINKADDR} -I${.CURDIR}/..
@@ -17,13 +16,12 @@ COPTS+=		-fshort-wchar -fPIC
 .if ${SOFTRAID:L} == "yes"
 COPTS+=		-DSOFTRAID
 .endif
-CPPFLAGS+=	-DSMALL -DSLOW -DNOBYFOUR -D__INTERNAL_LIBSA_CREAD
 COPTS+=		-D_STANDALONE -nostdinc -fno-builtin 
 
 AFLAGS+=	-pipe -fPIC
 
 .PATH:	${.CURDIR}/..
-SRCS+=	start.S self_reloc.c
+SRCS+=	self_reloc.c
 SRCS+=	efiboot.c efidev.c
 SRCS+=	conf.c
 
@@ -45,12 +43,12 @@ SRCS+=	aes_xts.c explicit_bzero.c hmac_sha1.c pbkdf2.c rijndael.c sha1.c
 SRCS+=	adler32.c crc32.c inflate.c inftrees.c
 
 .PATH:	${S}/lib/libkern
+SRCS+=	divdi3.c moddi3.c qdivrem.c
 SRCS+=	strlcpy.c
 
 .PATH:	${SADIR}/libsa
 SRCS+=	loadfile.c elf64.c elf32.c memprobe.c cmd_i386.c dev_i386.c exec_i386.c
 SRCS+=	machdep.c diskprobe.c
-SRCS+=	random_amd64.S
 
 .if ${SOFTRAID:L} == "yes"
 SRCS+=	softraid.c
@@ -66,6 +64,7 @@ ${PROG}: ${PROG.so}
 
 .include <bsd.prog.mk>
 CFLAGS+=	-Wno-pointer-sign
+CPPFLAGS+=	-DSMALL -DSLOW -DNOBYFOUR -D__INTERNAL_LIBSA_CREAD
 
 ${PROG.so}: ${OBJS}
 	${LD} ${LDFLAGS} -o ${.TARGET}.tmp ${OBJS} ${LDADD}

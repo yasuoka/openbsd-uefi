@@ -26,8 +26,6 @@
 
 #include <sys/types.h>
 
-#include <machine/reloc.h>
-#include <sys/exec_elf.h>
 #include <efi.h>
 
 #if defined(__aarch64__)
@@ -36,6 +34,7 @@
 #define	ELFW_R_TYPE	ELF64_R_TYPE
 #define	ELF_RELA
 #elif defined(__arm__) || defined(__i386__)
+#define	ELFSIZE		32
 #define	ElfW_Rel	Elf32_Rel
 #define	ElfW_Dyn	Elf32_Dyn
 #define	ELFW_R_TYPE	ELF32_R_TYPE
@@ -50,15 +49,16 @@
 #define	RELOC_TYPE_NONE		R_AARCH64_NONE
 #define	RELOC_TYPE_RELATIVE	R_AARCH64_RELATIVE
 #elif defined(__amd64__)
-#define	RELOC_TYPE_NONE		R_X86_64_NONE
-#define	RELOC_TYPE_RELATIVE	R_X86_64_RELATIVE
+#define	RELOC_TYPE_NONE		0	/* R_X86_64_NONE */
+#define	RELOC_TYPE_RELATIVE	8	/* R_X86_64_RELATIVE */
 #elif defined(__arm__)
 #define	RELOC_TYPE_NONE		R_ARM_NONE
 #define	RELOC_TYPE_RELATIVE	R_ARM_RELATIVE
 #elif defined(__i386__)
-#define	RELOC_TYPE_NONE		R_386_NONE
-#define	RELOC_TYPE_RELATIVE	R_386_RELATIVE
+#define	RELOC_TYPE_NONE		0	/* R_386_NONE */
+#define	RELOC_TYPE_RELATIVE	8	/* R_386_RELATIVE */
 #endif
+#include <sys/exec_elf.h>
 
 /*
  * A simple elf relocator.
@@ -68,7 +68,7 @@ self_reloc(Elf_Addr baseaddr, ElfW_Dyn *dynamic)
 {
 	Elf_Word relsz, relent;
 	Elf_Addr *newaddr;
-	ElfW_Rel *rel;
+	ElfW_Rel *rel = NULL;
 	ElfW_Dyn *dynp;
 
 	/*

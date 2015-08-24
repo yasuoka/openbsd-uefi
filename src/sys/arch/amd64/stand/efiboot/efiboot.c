@@ -88,10 +88,13 @@ efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *systab)
 		}
 	}
 
+#ifdef __amd64__
 	/* allocate run_i386_start() on heap */
 	if ((run_i386 = alloc(run_i386_size)) == NULL)
 		panic("alloc() failed");
 	memcpy(run_i386, run_i386_start, run_i386_size);
+#else
+#endif
 
 	/* can't use sa_cleanup since printf is used after sa_cleanup() */
 	/* sa_cleanup = efi_cleanup; */
@@ -127,7 +130,7 @@ efi_diskprobe(void)
 	int			 i, n = 0, bootdev;
 	UINTN			 sz;
 	EFI_STATUS		 status;
-	EFI_HANDLE		*handles;
+	EFI_HANDLE		*handles = NULL;
 	EFI_BLOCK_IO		*blkio;
 	EFI_BLOCK_IO_MEDIA	*media;
 	struct diskinfo		*di;
@@ -142,7 +145,7 @@ efi_diskprobe(void)
 		status = BS->LocateHandle(ByProtocol, &blkio_guid, 0, &sz,
 		    handles);
 	}
-	if (EFI_ERROR(status))
+	if (handles == NULL || EFI_ERROR(status))
 		panic("BS->LocateHandle() returns %d", status);
 
 	for (i = 0; i < sz / sizeof(EFI_HANDLE); i++) {
@@ -572,6 +575,7 @@ Xexit_efi(void)
 {
 	BS->Exit(IH, 0, 0, NULL);
 	while (1) { }
+	return (0);
 }
 
 int

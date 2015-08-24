@@ -28,7 +28,7 @@ Revision History
 #pragma pack()
 
 
-#ifdef __FreeBSD__
+#if defined(__FreeBSD__) || defined(__OpenBSD__)
 #include <sys/stdint.h>
 #else
 //
@@ -79,7 +79,7 @@ Revision History
         #endif
     #endif
 #endif
-#endif	/* __FreeBSD__ */
+#endif	/* __FreeBSD__ || __OpenBSD__ */
 
 //
 // Basic EFI types of various widths
@@ -245,7 +245,7 @@ typedef uint32_t   UINTN;
 
 #endif // EFI_FW_NT
 
-#ifdef __FreeBSD__
+#if defined(__FreeBSD__) || defined(__OpenBSD__)
 #define INTERFACE_DECL(x) struct x
 #else
 //
@@ -259,7 +259,7 @@ typedef uint32_t   UINTN;
 #else
 #define INTERFACE_DECL(x) typedef struct x
 #endif
-#endif	/* __FreeBSD__ */
+#endif	/* __FreeBSD__ || __OpenBSD__ */
 
 #if _MSC_EXTENSIONS
 #pragma warning ( disable : 4731 )  // Suppress warnings about modification of EBP
