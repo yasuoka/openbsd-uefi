@@ -256,14 +256,14 @@ eif_memprobe_internal(void)
 		bm0.addr = mm->PhysicalStart;
 		bm0.size = mm->NumberOfPages * EFI_PAGE_SIZE;
 		if (mm->Type == EfiReservedMemoryType ||
-		    mm->Type == EfiUnusableMemory)
+		    mm->Type == EfiUnusableMemory ||
+		    mm->Type == EfiRuntimeServicesCode ||
+		    mm->Type == EfiRuntimeServicesData)
 			bm0.type = BIOS_MAP_RES;
-		else if (mm->Type == EfiUnusableMemory ||
-		    mm->Type == EfiLoaderCode || mm->Type == EfiLoaderData ||
+		else if (mm->Type == EfiLoaderCode ||
+		    mm->Type == EfiLoaderData ||
 		    mm->Type == EfiBootServicesCode ||
 		    mm->Type == EfiBootServicesData ||
-		    mm->Type == EfiRuntimeServicesCode ||
-		    mm->Type == EfiRuntimeServicesData ||
 		    mm->Type == EfiConventionalMemory)
 			bm0.type = BIOS_MAP_FREE;
 		else if (mm->Type == EfiACPIReclaimMemory)
