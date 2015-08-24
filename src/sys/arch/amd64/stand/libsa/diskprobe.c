@@ -192,7 +192,7 @@ efi_hardprobe(void)
 	n = 0;
 	TAILQ_FOREACH_SAFE(dip, &efi_disklist, list, dipt) {
 		TAILQ_REMOVE(&efi_disklist, dip, list);
-		printf(" hd%u%s", n);
+		printf(" hd%u", n);
 
 		dip->bios_info.bios_number = 0x80 | n;
 		/* Try to find the label, to figure out device type */
