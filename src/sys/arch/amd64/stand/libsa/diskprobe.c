@@ -184,7 +184,7 @@ efi_hardprobe(void)
 {
 	int		 n;
 	struct diskinfo	*dip, *dipt;
-	u_int		 bsdunit, type;
+	u_int		 bsdunit, type = 0;
 	u_int		 scsi= 0, ide = 0;
 	extern struct disklist_lh
 			 efi_disklist;

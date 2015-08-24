@@ -93,7 +93,6 @@ efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *systab)
 	if ((run_i386 = alloc(run_i386_size)) == NULL)
 		panic("alloc() failed");
 	memcpy(run_i386, run_i386_start, run_i386_size);
-#else
 #endif
 
 	/* can't use sa_cleanup since printf is used after sa_cleanup() */
@@ -472,6 +471,7 @@ efi_makebootargs(void)
 			*gopi;
 	bios_efiinfo_t	 ei;
 
+	memset(&ei, 0, sizeof(ei));
 	/*
 	 * ACPI, BIOS configuration table
 	 */
