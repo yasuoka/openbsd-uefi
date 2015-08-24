@@ -97,7 +97,7 @@ efid_io(int rw, efi_diskinfo_t ed, u_int off, int nsect, void *buf)
 	case F_READ:
 		/* allocate the space for reading unaligned blocks */
 		if (ed->blkio->Media->BlockSize != DEV_BSIZE) {
-			if (iblksz < ed->blkio->Media->BlockSize)
+			if (iblk && iblksz < ed->blkio->Media->BlockSize)
 				free(iblk, iblksz);
 			if (iblk == NULL) {
 				iblk = alloc(ed->blkio->Media->BlockSize);
