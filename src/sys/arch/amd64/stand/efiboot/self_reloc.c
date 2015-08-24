@@ -108,7 +108,7 @@ self_reloc(Elf_Addr baseaddr, ElfW_Dyn *dynamic)
 			/* Address relative to the base address. */
 			newaddr = (Elf_Addr *)(rel->r_offset + baseaddr);
 			*newaddr += baseaddr;
-			/* Add the addend when the ABI uses them */ 
+			/* Add the addend when the ABI uses them */
 #ifdef ELF_RELA
 			*newaddr += rel->r_addend;
 #endif

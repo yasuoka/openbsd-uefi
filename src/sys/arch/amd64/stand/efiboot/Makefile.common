@@ -16,7 +16,7 @@ COPTS+=		-fshort-wchar -fPIC
 .if ${SOFTRAID:L} == "yes"
 COPTS+=		-DSOFTRAID
 .endif
-COPTS+=		-D_STANDALONE -nostdinc -fno-builtin 
+COPTS+=		-D_STANDALONE -nostdinc -fno-builtin
 
 AFLAGS+=	-pipe -fPIC
 
