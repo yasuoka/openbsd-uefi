@@ -160,7 +160,7 @@ typedef uint64_t   UINTN;
 //
 
 #ifdef	__amd64__
-#define	EFIAPI	__attribute__((ms_abi))
+#define	EFIAPI			/* Use EFI_CALL() macro in eficall.h */
 #endif
 
 #ifndef EFIAPI                  // Forces EFI calling conventions reguardless of compiler options

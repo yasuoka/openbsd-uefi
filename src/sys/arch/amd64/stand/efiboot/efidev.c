@@ -40,6 +40,7 @@
 #endif
 
 #include <efi.h>
+#include "eficall.h"
 
 extern int debug;
 
@@ -105,23 +106,25 @@ efid_io(int rw, efi_diskinfo_t ed, u_int off, int nsect, void *buf)
 			}
 		}
 		if (i_lblks > 0) {
-			status = ed->blkio->ReadBlocks(ed->blkio, ed->mediaid,
-			    lba - 1, ed->blkio->Media->BlockSize, iblk);
+			status = EFI_CALL(ed->blkio->ReadBlocks,
+			    ed->blkio, ed->mediaid, lba - 1,
+			    ed->blkio->Media->BlockSize, iblk);
 			if (EFI_ERROR(status))
 				goto on_eio;
 			memcpy(buf, iblk + (blks - i_lblks),
 			    i_lblks * DEV_BSIZE);
 		}
 		if (i_nblks > 0) {
-			status = ed->blkio->ReadBlocks(ed->blkio, ed->mediaid,
-			    lba, ed->blkio->Media->BlockSize * (i_nblks / blks),
+			status = EFI_CALL(ed->blkio->ReadBlocks,
+			    ed->blkio, ed->mediaid, lba,
+			    ed->blkio->Media->BlockSize * (i_nblks / blks),
 			    buf + (i_lblks * DEV_BSIZE));
 			if (EFI_ERROR(status))
 				goto on_eio;
 		}
 		if (i_tblks > 0) {
-			status = ed->blkio->ReadBlocks(ed->blkio, ed->mediaid,
-			    lba + (i_nblks / blks),
+			status = EFI_CALL(ed->blkio->ReadBlocks,
+			    ed->blkio, ed->mediaid, lba + (i_nblks / blks),
 			    ed->blkio->Media->BlockSize, iblk);
 			if (EFI_ERROR(status))
 				goto on_eio;

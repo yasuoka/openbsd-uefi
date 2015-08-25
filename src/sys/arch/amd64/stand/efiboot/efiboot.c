@@ -33,6 +33,7 @@
 
 #include "efidev.h"
 #include "efiboot.h"
+#include "eficall.h"
 #include "run_i386.h"
 
 EFI_SYSTEM_TABLE	*ST;
@@ -73,7 +74,7 @@ efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *systab)
 	efi_video_init();
 	efi_heap_init();
 
-	status = BS->HandleProtocol(image, &imgdp_guid, (void **)&dp0);
+	status = EFI_CALL(BS->HandleProtocol,image, &imgdp_guid, (void **)&dp0);
 	if (status == EFI_SUCCESS) {
 		for (dp = dp0; !IsDevicePathEnd(dp);
 		    dp = NextDevicePathNode(dp)) {
@@ -111,7 +112,7 @@ efi_cleanup(void)
 	EFI_STATUS	 status;
 
 	eif_memprobe_internal();	/* sync the current map */
-	status = BS->ExitBootServices(IH, mmap_key);
+	status = EFI_CALL(BS->ExitBootServices, IH, mmap_key);
 	if (status != EFI_SUCCESS)
 		panic("ExitBootServices");
 }
@@ -138,11 +139,11 @@ efi_diskprobe(void)
 	TAILQ_INIT(&efi_disklist);
 
 	sz = 0;
-	status = BS->LocateHandle(ByProtocol, &blkio_guid, 0, &sz, 0);
+	status = EFI_CALL(BS->LocateHandle, ByProtocol, &blkio_guid, 0, &sz, 0);
 	if (status == EFI_BUFFER_TOO_SMALL) {
 		handles = alloc(sz);
-		status = BS->LocateHandle(ByProtocol, &blkio_guid, 0, &sz,
-		    handles);
+		status = EFI_CALL(BS->LocateHandle, ByProtocol, &blkio_guid,
+		    0, &sz, handles);
 	}
 	if (handles == NULL || EFI_ERROR(status))
 		panic("BS->LocateHandle() returns %d", status);
@@ -150,7 +151,7 @@ efi_diskprobe(void)
 	for (i = 0; i < sz / sizeof(EFI_HANDLE); i++) {
 		bootdev = 0;
 		blkio = handles[i];
-		status = BS->HandleProtocol(handles[i], &blkio_guid,
+		status = EFI_CALL(BS->HandleProtocol, handles[i], &blkio_guid,
 		    (void **)&blkio);
 		if (EFI_ERROR(status))
 			panic("BS->HandleProtocol() returns %d", status);
@@ -163,7 +164,7 @@ efi_diskprobe(void)
 
 		if (efi_bootdp == NULL)
 			goto next;
-		status = BS->HandleProtocol(handles[i], &devp_guid,
+		status = EFI_CALL(BS->HandleProtocol, handles[i], &devp_guid,
 		    (void **)&dp0);
 		if (EFI_ERROR(status))
 			goto next;
@@ -198,7 +199,7 @@ efi_heap_init(void)
 	EFI_STATUS	 status;
 
 	heap = 0x1000000;	/* Below kernel base address */
-	status = BS->AllocatePages(AllocateMaxAddress, EfiLoaderData,
+	status = EFI_CALL(BS->AllocatePages, AllocateMaxAddress, EfiLoaderData,
 	    EFI_SIZE_TO_PAGES(heapsiz), &heap);
 	if (status != EFI_SUCCESS)
 		panic("BS->AllocatePages()");
@@ -239,11 +240,11 @@ eif_memprobe_internal(void)
 	bios_memmap[0].type = BIOS_MAP_END;
 
 	siz = 0;
-	status = BS->GetMemoryMap(&siz, NULL, &mapkey, &mmsiz, &mmver);
+	status = EFI_CALL(BS->GetMemoryMap, &siz, NULL, &mapkey, &mmsiz, &mmver);
 	if (status != EFI_BUFFER_TOO_SMALL)
 		panic("cannot get the size of memory map");
 	mm0 = alloc(siz);
-	status = BS->GetMemoryMap(&siz, mm0, &mapkey, &mmsiz, &mmver);
+	status = EFI_CALL(BS->GetMemoryMap, &siz, mm0, &mapkey, &mmsiz, &mmver);
 	if (status != EFI_SUCCESS)
 		panic("cannot get the memory map");
 	n = siz / mmsiz;
@@ -327,15 +328,15 @@ efi_video_init(void)
 	EFI_STATUS			 status;
 
 	conout = ST->ConOut;
-	status = BS->LocateProtocol(&ConsoleControlGUID, NULL,
+	status = EFI_CALL(BS->LocateProtocol, &ConsoleControlGUID, NULL,
 	    (void **)&ConsoleControl);
         if (status == EFI_SUCCESS)
-		(void)ConsoleControl->SetMode(ConsoleControl,
+		(void)EFI_CALL(ConsoleControl->SetMode, ConsoleControl,
 		    EfiConsoleControlScreenText);
         mode80x25 = -1;
         mode100x31 = -1;
         for (i = 0; ; i++) {
-                status = conout->QueryMode(conout, i, &cols, &rows);
+                status = EFI_CALL(conout->QueryMode, conout, i, &cols, &rows);
                 if (EFI_ERROR(status))
                         break;
 		if (mode80x25 < 0 && cols == 80 && rows == 25)
@@ -348,9 +349,9 @@ efi_video_init(void)
 		}
         }
 	if (mode100x31 >= 0)
-                conout->SetMode(conout, mode100x31);
+                EFI_CALL(conout->SetMode, conout, mode100x31);
         else if (mode80x25 >= 0)
-                conout->SetMode(conout, mode80x25);
+                EFI_CALL(conout->SetMode, conout, mode80x25);
 	conin = ST->ConIn;
 	efi_video_reset();
 }
@@ -358,9 +359,10 @@ efi_video_init(void)
 static void
 efi_video_reset(void)
 {
-	conout->EnableCursor(conout, TRUE);
-	conout->SetAttribute(conout, EFI_TEXT_ATTR(EFI_LIGHTGRAY, EFI_BLACK));
-	conout->ClearScreen(conout);
+	EFI_CALL(conout->EnableCursor, conout, TRUE);
+	EFI_CALL(conout->SetAttribute, conout,
+	    EFI_TEXT_ATTR(EFI_LIGHTGRAY, EFI_BLACK));
+	EFI_CALL(conout->ClearScreen, conout);
 }
 
 static void
@@ -377,7 +379,7 @@ efi_video_bestmode(void)
 		}
 	}
 	if (bestmode > 0)
-                conout->SetMode(conout, bestmode);
+                EFI_CALL(conout->SetMode, conout, bestmode);
 	efi_video_reset();
 }
 
@@ -406,12 +408,12 @@ efi_cons_getc(dev_t dev)
 		return (r);
 	}
 
-	status = conin->ReadKeyStroke(conin, &key);
+	status = EFI_CALL(conin->ReadKeyStroke, conin, &key);
 	while (status == EFI_NOT_READY) {
 		if (dev & 0x80)
 			return (0);
-		BS->WaitForEvent(1, &conin->WaitForKey, &dummy);
-		status = conin->ReadKeyStroke(conin, &key);
+		EFI_CALL(BS->WaitForEvent, 1, &conin->WaitForKey, &dummy);
+		status = EFI_CALL(conin->ReadKeyStroke, conin, &key);
 	}
 
 	if (dev & 0x80)
@@ -431,7 +433,7 @@ efi_cons_putc(dev_t dev, int c)
 	buf[0] = c;
 	buf[1] = 0;
 
-	conout->OutputString(conout, buf);
+	EFI_CALL(conout->OutputString, conout, buf);
 }
 
 int
@@ -488,7 +490,8 @@ efi_makebootargs(void)
 	/*
 	 * Frame buffer
 	 */
-	status = BS->LocateProtocol(&GraphicsOutputGUID, NULL, (void **)&gop);
+	status = EFI_CALL(BS->LocateProtocol, &GraphicsOutputGUID, NULL,
+	    (void **)&gop);
 	if (!EFI_ERROR(status)) {
 		efi_video_bestmode();
 		gopi = gop->Mode->Info;
@@ -532,7 +535,7 @@ _rtt(void)
 	printf("Hit any key to reboot\n");
 	efi_cons_getc(0);
 #endif
-	RS->ResetSystem(EfiResetCold, EFI_SUCCESS, 0, NULL);
+	EFI_CALL(RS->ResetSystem, EfiResetCold, EFI_SUCCESS, 0, NULL);
 	while (1) { }
 }
 
@@ -548,7 +551,7 @@ getsecs(void)
 	};
 #define isleap(_y) (((_y) % 4) == 0 && (((_y) % 100) != 0 || ((_y) % 400) == 0))
 
-	ST->RuntimeServices->GetTime(&t, NULL);
+	EFI_CALL(ST->RuntimeServices->GetTime, &t, NULL);
 
 	/* Calc days from UNIX epoch */
 	r = (t.Year - 1970) * 365;
@@ -573,7 +576,7 @@ getsecs(void)
 int
 Xexit_efi(void)
 {
-	BS->Exit(IH, 0, 0, NULL);
+	EFI_CALL(BS->Exit, IH, 0, 0, NULL);
 	while (1) { }
 	return (0);
 }
@@ -594,7 +597,7 @@ Xvideo_efi(void)
 	}
 	printf("\nCurrent Mode = %d\n", conout->Mode->Mode);
 	if (0 <= mode && mode < i) {
-		conout->SetMode(conout, mode);
+		EFI_CALL(conout->SetMode, conout, mode);
 		efi_video_reset();
 	}
 

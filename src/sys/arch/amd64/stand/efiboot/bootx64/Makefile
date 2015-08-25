@@ -2,7 +2,6 @@
 
 .include <bsd.own.mk>
 
-CC=		clang
 PROG=		BOOTX64.EFI
 NOMAN=		#
 OBJFMT=		efi-app-x86_64
