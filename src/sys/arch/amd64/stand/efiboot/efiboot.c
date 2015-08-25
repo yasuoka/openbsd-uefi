@@ -126,7 +126,7 @@ struct disklist_lh efi_disklist;
 void
 efi_diskprobe(void)
 {
-	int			 i, n = 0, bootdev;
+	int			 i, bootdev;
 	UINTN			 sz;
 	EFI_STATUS		 status;
 	EFI_HANDLE		*handles = NULL;
@@ -182,7 +182,6 @@ next:
 			TAILQ_INSERT_HEAD(&efi_disklist, di, list);
 		else
 			TAILQ_INSERT_TAIL(&efi_disklist, di, list);
-		n++;
 	}
 
 	free(handles, sz);
