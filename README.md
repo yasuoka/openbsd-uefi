@@ -14,14 +14,11 @@ How to play
 -----------
 
 - Use OpenBSD/amd64
-- Requires 'llvm' (clang) to compile the EFI boot loader.  Since EFI uses
-  MS-ABI which is not supported by OpenBSD's gcc.
-
 
 Compile "efiboot.efi":
 
     % cd sys/arch/amd64/stand/efiboot
-    % env CC=clang make
+    % make
 
 Compile "kernel":
 
@@ -61,5 +58,4 @@ TODO
 ----
 
 - Support serial console, CDROM and floppy disk.
-- Support 32bit x86 UEFI
 - Test other machines than VAIO
