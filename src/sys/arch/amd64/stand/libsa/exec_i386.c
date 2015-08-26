@@ -128,16 +128,16 @@ run_loadfile(u_long *marks, int howto)
 	    ((int *)entry)[0], ((int *)entry)[1],
 	    ((int *)entry)[2], ((int *)entry)[3]);
 
-#ifdef EFIBOOT
+#if defined(EFIBOOT)
 	efi_cleanup();
-#ifdef __amd64__
+#endif
+#if defined(EFIBOOT) && defined(__amd64__)
 	(*run_i386)((u_long)run_i386, entry, howto, bootdev, BOOTARG_APIVER,
-	    marks[MARK_END], extmem, cnvmem, ac, (int)av);
-#endif
-#endif
-
+	    marks[MARK_END], extmem, cnvmem, ac, (intptr_t)av);
+#else
 	/* stack and the gung is ok at this point, so, no need for asm setup */
 	(*(startfuncp)entry)(howto, bootdev, BOOTARG_APIVER, marks[MARK_END],
 	    extmem, cnvmem, ac, (int)av);
 	/* not reached */
+#endif
 }
