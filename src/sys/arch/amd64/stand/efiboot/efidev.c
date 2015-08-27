@@ -47,8 +47,8 @@ extern int debug;
 #include "efidev.h"
 #include "biosdev.h"	/* for dklookup() */
 
-#define EFI_LBAOFF(_ed, _n)	\
-	((((_ed)->blkio->Media->BlockSize) / DEV_BSIZE) * (_n))
+#define EFI_BLKSPERSEC(_ed)	((_ed)->blkio->Media->BlockSize / DEV_BSIZE)
+#define EFI_SECTOBLK(_ed, _n)	((_n) * EFI_BLKSPERSEC(_ed))
 
 struct efi_diskinfo {
 	EFI_BLOCK_IO		*blkio;
@@ -84,8 +84,8 @@ efid_io(int rw, efi_diskinfo_t ed, u_int off, int nsect, void *buf)
 	static u_int	 iblksz = 0;
 
 	/* block count of the intrisic block size in DEV_BSIZE */
-	blks = ed->blkio->Media->BlockSize / DEV_BSIZE;
-	lba = off / blks;	/* lba */
+	blks = EFI_BLKSPERSEC(ed);
+	lba = off / blks;
 
 	/* leading and trailing unaligned blocks in intrisic block */
 	i_lblks = ((off % blks) == 0)? 0 : blks - (off % blks);
@@ -224,11 +224,11 @@ again:
 		if (dp->dp_typ == DOSPTYP_EFI) {
 			uint64_t gptoff = findopenbsd_gpt(ed, err);
 			if (gptoff > UINT_MAX ||
-			    EFI_LBAOFF(ed, gptoff) > UINT_MAX) {
+			    EFI_SECTOBLK(ed, gptoff) > UINT_MAX) {
 				*err = "Paritition LBA > 2**32";
 				return (-1);
 			}
-			return EFI_LBAOFF(ed, gptoff);
+			return EFI_SECTOBLK(ed, gptoff);
 		}
 	}
 
@@ -270,19 +270,35 @@ findopenbsd_gpt(efi_diskinfo_t ed, const char **err)
 
 	/* LBA1: GPT Header */
 	lba = 1;
-	status = efid_io(F_READ, ed, EFI_LBAOFF(ed, lba), 1, buf);
+	status = efid_io(F_READ, ed, EFI_SECTOBLK(ed, lba), 1, buf);
 	memcpy(&gh, buf, sizeof(gh));
 
 	/* Check signature */
-	if (letoh64(gh.gh_sig) != 0x5452415020494645) {
+	if (letoh64(gh.gh_sig) != GPTSIGNATURE) {
 		*err = "bad GPT signature\n";
+		return (-1);
+	}
+
+	/* assert and some checks not to read random place */
+	if (gh.gh_part_size > DEV_BSIZE) {
+		*err = "GPT paritition size beyonds the limit\n";
+		return (-1);
+	}
+	if (gh.gh_lba_start >= ed->blkio->Media->LastBlock ||
+	    gh.gh_part_lba >= gh.gh_lba_start) {
+		*err = "bad GPT header\n";
+		return (-1);
+	}
+	if ((gh.gh_part_num * gh.gh_part_size) / ed->blkio->Media->BlockSize
+	    > gh.gh_lba_start - gh.gh_part_lba) {
+		*err = "bad GPT number of partition entries\n";
 		return (-1);
 	}
 
 	part = 0;
 	lba = letoh64(gh.gh_part_lba);
 	while (part < letoh32(gh.gh_part_num)) {
-		status = efid_io(F_READ, ed, EFI_LBAOFF(ed, lba++), 1, buf);
+		status = efid_io(F_READ, ed, EFI_SECTOBLK(ed, lba++), 1, buf);
 		if (EFI_ERROR(status)) {
 			*err = "I/O Error\n";
 			return (-1);

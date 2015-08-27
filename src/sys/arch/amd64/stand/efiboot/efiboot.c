@@ -170,10 +170,8 @@ efi_diskprobe(void)
 			goto next;
 		for (dp = dp0; !IsDevicePathEnd(dp);
 		    dp = NextDevicePathNode(dp)) {
-			if (memcmp(efi_bootdp, dp, sizeof(EFI_DEVICE_PATH))
-				== 0 &&
-			    memcmp(efi_bootdp, dp, DevicePathNodeLength(dp))
-				== 0) {
+			if (!memcmp(efi_bootdp, dp, sizeof(EFI_DEVICE_PATH)) &&
+			    !memcmp(efi_bootdp, dp, DevicePathNodeLength(dp))) {
 				bootdev = 1;
 				break;
 			}
