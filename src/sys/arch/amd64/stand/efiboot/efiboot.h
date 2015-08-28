@@ -29,7 +29,7 @@ int	 Xvideo_efi(void);
 int	 Xexit_efi(void);
 void	 efi_makebootargs(void);
 
-int	 Xtest(void);
+int	 Xpoweroff_efi(void);
 
 extern void (*run_i386)(u_long, u_long, int, int, int, int, int, int, int, int)
     __attribute__ ((noreturn));

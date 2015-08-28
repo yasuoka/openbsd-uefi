@@ -601,3 +601,10 @@ Xvideo_efi(void)
 
 	return (0);
 }
+
+int
+Xpoweroff_efi(void)
+{
+	EFI_CALL(RS->ResetSystem, EfiResetShutdown, EFI_SUCCESS, 0, NULL);
+	return (0);
+}

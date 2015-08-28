@@ -60,6 +60,7 @@ const struct cmd_table cmd_machine[] = {
 #ifdef EFIBOOT
 	{ "video",	CMDT_CMD, Xvideo_efi },
 	{ "exit",	CMDT_CMD, Xexit_efi },
+	{ "poweroff",	CMDT_CMD, Xpoweroff_efi },
 #endif
 #ifdef DEBUG
 	{ "regs",	CMDT_CMD, Xregs },
