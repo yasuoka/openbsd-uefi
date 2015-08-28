@@ -33,8 +33,8 @@ ENTRY(efi_call)
 	mov	%rcx, %rax
 	mov	%rdi, %rcx
 
-	add	$6, %rdi	/* %rdi = nargs + 4 + 1 + 1 */
-	/* +4 for shadow, +1 for %rbx and +1 for align */
+	add	$4, %rdi	/* %rdi = nargs -2 + 4 + 1 + 1 */
+	/* -2 for registers, +4 for shadow, +1 for %rbx and +1 for align */
 
 	shl	$3, %rdi
 	sub	%rdi, %rsp
