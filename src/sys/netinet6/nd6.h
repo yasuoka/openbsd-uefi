@@ -1,4 +1,4 @@
-/*	$OpenBSD: nd6.h,v 1.45 2015/08/18 08:52:25 mpi Exp $	*/
+/*	$OpenBSD: nd6.h,v 1.48 2015/08/24 23:28:27 mpi Exp $	*/
 /*	$KAME: nd6.h,v 1.95 2002/06/08 11:31:06 itojun Exp $	*/
 
 /*
@@ -291,7 +291,7 @@ void nd6_ns_input(struct mbuf *, int, int);
 void nd6_ns_output(struct ifnet *, struct in6_addr *,
 	struct in6_addr *, struct llinfo_nd6 *, int);
 caddr_t nd6_ifptomac(struct ifnet *);
-void nd6_dad_start(struct ifaddr *, int *);
+void nd6_dad_start(struct ifaddr *);
 void nd6_dad_stop(struct ifaddr *);
 void nd6_ra_input(struct mbuf *, int, int);
 
@@ -312,8 +312,6 @@ int nd6_prelist_add(struct nd_prefix *, struct nd_defrouter *,
 void pfxlist_onlink_check(void);
 struct nd_defrouter *defrouter_lookup(struct in6_addr *, struct ifnet *);
 
-struct nd_prefix *nd6_prefix_add(struct ifnet *, struct sockaddr_in6 *,
-    struct sockaddr_in6 *, struct in6_addrlifetime *, int);
 struct nd_prefix *nd6_prefix_lookup(struct nd_prefix *);
 int in6_ifdel(struct ifnet *, struct in6_addr *);
 int in6_init_prefix_ltimes(struct nd_prefix *ndpr);

@@ -1,4 +1,4 @@
-/*	$OpenBSD: kern_exit.c,v 1.149 2015/03/14 03:38:50 jsg Exp $	*/
+/*	$OpenBSD: kern_exit.c,v 1.151 2015/08/28 00:03:53 deraadt Exp $	*/
 /*	$NetBSD: kern_exit.c,v 1.39 1996/04/22 01:38:25 christos Exp $	*/
 
 /*
@@ -649,6 +649,16 @@ process_zap(struct process *pr)
 	 */
 	(void)chgproccnt(pr->ps_ucred->cr_ruid, -1);
 
+	if (pr->ps_tamepaths && --pr->ps_tamepaths->wl_ref == 0) {
+		struct whitepaths *wl = pr->ps_tamepaths;
+		int i;
+
+		for (i = 0; i < wl->wl_count; i++)
+			free(wl->wl_paths[i].name, M_TEMP, wl->wl_paths[i].len);
+		free(wl, M_TEMP, wl->wl_size);
+	}
+	pr->ps_tamepaths = NULL;
+
 	/*
 	 * Release reference to text vnode
 	 */
@@ -659,7 +669,7 @@ process_zap(struct process *pr)
 
 	KASSERT(pr->ps_refcnt == 1);
 	if (pr->ps_ptstat != NULL)
-		free(pr->ps_ptstat, M_SUBPROC, 0);
+		free(pr->ps_ptstat, M_SUBPROC, sizeof(*pr->ps_ptstat));
 	pool_put(&rusage_pool, pr->ps_ru);
 	KASSERT(TAILQ_EMPTY(&pr->ps_threads));
 	limfree(pr->ps_limit);

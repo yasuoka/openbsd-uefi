@@ -1,4 +1,4 @@
-/*	$OpenBSD: envy.c,v 1.61 2015/07/29 21:10:50 ratchov Exp $	*/
+/*	$OpenBSD: envy.c,v 1.65 2015/08/28 16:21:41 ratchov Exp $	*/
 /*
  * Copyright (c) 2007 Alexandre Ratchov <alex@caoua.org>
  *
@@ -278,6 +278,7 @@ struct envy_card envy_cards[] = {
 		delta_codec_write,
 		NULL
 	}, {
+#define ENVY_SUBID_DELTA44	(PCI_ID_CODE(0x1412, 0xd633))
 		PCI_ID_CODE(0x1412, 0xd633),
 		"M-Audio Delta 44",
 		4, &ak4524_adc, 4, &ak4524_dac,
@@ -358,14 +359,6 @@ struct envy_card envy_cards[] = {
  * M-Audio Delta specific code
  */
 
-/*
- * GPIO pin numbers
- */
-#define DELTA_GPIO_CLK		0x2
-#define DELTA_GPIO_DOUT		0x8
-#define DELTA_GPIO_CSMASK	0x70
-#define DELTA_GPIO_CS(dev)	((dev) << 4)
-
 void
 delta_init(struct envy_softc *sc)
 {
@@ -390,27 +383,43 @@ void
 delta_codec_write(struct envy_softc *sc, int dev, int addr, int data)
 {
 	int bits, i, reg;
+	int clk, dout, csmask, cs;
+
+	/*
+	 * GPIO pin numbers
+	 */
+	if (sc->card->subid == ENVY_SUBID_DELTA44) {
+		clk = 0x20;
+		dout = 0x10;
+		csmask = 0xc0;
+		cs = dev ? 0x40 : 0x80;
+	} else {
+		clk = 0x2;
+		dout = 0x8;
+		csmask = 0x70;
+		cs = dev << 4;
+	}
 
 	reg = envy_gpio_getstate(sc);
-	reg &= ~DELTA_GPIO_CSMASK;
-	reg |=  DELTA_GPIO_CS(dev);
+	reg &= ~csmask;
+	reg |= cs;
 	envy_gpio_setstate(sc, reg);
 	delay(1);
 
 	bits  = 0xa000 | (addr << 8) | data;
 	for (i = 0; i < 16; i++) {
-		reg &= ~(DELTA_GPIO_CLK | DELTA_GPIO_DOUT);
-		reg |= (bits & 0x8000) ? DELTA_GPIO_DOUT : 0;
+		reg &= ~(clk | dout);
+		reg |= (bits & 0x8000) ? dout : 0;
 		envy_gpio_setstate(sc, reg);
 		delay(1);
 
-		reg |= DELTA_GPIO_CLK;
+		reg |= clk;
 		envy_gpio_setstate(sc, reg);
 		delay(1);
 		bits <<= 1;
 	}
 
-	reg |= DELTA_GPIO_CSMASK;
+	reg |= csmask;
 	envy_gpio_setstate(sc, reg);
 	delay(1);
 }
@@ -1360,7 +1369,7 @@ envy_midi_wait(struct envy_softc *sc)
 void
 envy_reset(struct envy_softc *sc)
 {
-	int i;
+	int i, reg;
 
 	/*
 	 * full reset
@@ -1440,8 +1449,10 @@ envy_reset(struct envy_softc *sc)
 	 * clear all interrupts and unmask used ones
 	 */
 	envy_ccs_write(sc, ENVY_CCS_INTSTAT, 0xff);
-	envy_ccs_write(sc, ENVY_CCS_INTMASK,
-	    ~(ENVY_CCS_INT_MT | ENVY_CCS_INT_MIDI0));
+	reg = ~ENVY_CCS_INT_MT;
+	if (sc->midi_isopen)
+		reg &= ~ENVY_CCS_INT_MIDI0;
+	envy_ccs_write(sc, ENVY_CCS_INTMASK, ~ENVY_CCS_INT_MT);
 	if (sc->isht) {
 		envy_mt_write_1(sc, ENVY_MT_NSTREAM, 4 - sc->card->noch / 2);
 		envy_mt_write_1(sc, ENVY_MT_IMASK, ~(ENVY_MT_IMASK_PDMA0 |
@@ -1651,6 +1662,9 @@ envyattach(struct device *parent, struct device *self, void *aux)
 	const char *intrstr;
 	int subid;
 
+#if NMIDI > 0
+	sc->midi_isopen = 0;
+#endif
 	sc->pci_tag = pa->pa_tag;
 	sc->pci_pc = pa->pa_pc;
 	sc->pci_dmat = pa->pa_dmat;
@@ -1698,10 +1712,10 @@ envyattach(struct device *parent, struct device *self, void *aux)
 	envy_reset(sc);
 	sc->audio = audio_attach_mi(&envy_hw_if, sc, &sc->dev);
 #if NMIDI > 0
-	if (!sc->isht || sc->eeprom[ENVY_EEPROM_CONF] & ENVY_CONF_MIDI)
+	if (!sc->isht || sc->eeprom[ENVY_EEPROM_CONF] & ENVY_CONF_MIDI) {
 		sc->midi = midi_attach_mi(&envy_midi_hw_if, sc, &sc->dev);
+	}
 #endif
-
 }
 
 int
@@ -2384,12 +2398,33 @@ envy_midi_open(void *self, int flags,
     void *arg)
 {
 	struct envy_softc *sc = (struct envy_softc *)self;
+	unsigned int i, reg;
 
-	mtx_enter(&audio_lock);
+	/* discard pending data */
+	for (i = 0; i < 128; i++) {
+		reg = envy_ccs_read(sc, ENVY_CCS_MIDISTAT0);
+		if (reg & ENVY_MIDISTAT_IEMPTY(sc))
+			break;
+		(void)envy_ccs_read(sc, ENVY_CCS_MIDIDATA0);
+	}
+#ifdef ENVY_DEBUG
+	if (i > 0)
+		DPRINTF("%s: midi: discarded %u bytes\n", DEVNAME(sc), i);
+#endif
+
+	/* clear pending midi interrupt */
+	envy_ccs_write(sc, ENVY_CCS_INTSTAT, ENVY_CCS_INT_MIDI0);
+
+	/* interrupts are disabled, it safe to manipulate these */
 	sc->midi_in = in;
 	sc->midi_out = out;
 	sc->midi_arg = arg;
-	mtx_leave(&audio_lock);
+	sc->midi_isopen = 1;
+
+	/* enable interrupts */
+	reg = envy_ccs_read(sc, ENVY_CCS_INTMASK);
+	reg &= ~ENVY_CCS_INT_MIDI0;
+	envy_ccs_write(sc, ENVY_CCS_INTMASK, reg);
 	return 0;
 }
 
@@ -2397,12 +2432,20 @@ void
 envy_midi_close(void *self)
 {
 	struct envy_softc *sc = (struct envy_softc *)self;
+	unsigned int reg;
 
+	/* wait for output fifo to drain */
 	tsleep(sc, PWAIT, "envymid", hz / 10);
-	mtx_enter(&audio_lock);
+
+	/* disable interrupts */
+	reg = envy_ccs_read(sc, ENVY_CCS_INTMASK);
+	reg |= ENVY_CCS_INT_MIDI0;
+	envy_ccs_write(sc, ENVY_CCS_INTMASK, reg);
+
+	/* interrupts are disabled, it safe to manipulate these */
 	sc->midi_in = NULL;
 	sc->midi_out = NULL;
-	mtx_leave(&audio_lock);
+	sc->midi_isopen = 0;
 }
 
 int

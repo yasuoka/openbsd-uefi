@@ -1,4 +1,4 @@
-/*	$OpenBSD: aesni.c,v 1.32 2015/03/14 03:38:46 jsg Exp $	*/
+/*	$OpenBSD: aesni.c,v 1.35 2015/08/28 19:59:36 tedu Exp $	*/
 /*-
  * Copyright (c) 2003 Jason Wright
  * Copyright (c) 2003, 2004 Theo de Raadt
@@ -160,7 +160,8 @@ aesni_setup(void)
 
 	aesni_sc->sc_cid = crypto_get_driverid(0);
 	if (aesni_sc->sc_cid < 0) {
-		free(aesni_sc, M_DEVBUF, 0);
+		free(aesni_sc->sc_buf, M_DEVBUF, aesni_sc->sc_buflen);
+		free(aesni_sc, M_DEVBUF, sizeof(*aesni_sc));
 		return;
 	}
 
@@ -350,12 +351,12 @@ aesni_freesession(u_int64_t tid)
 
 	if (ses->ses_ghash) {
 		explicit_bzero(ses->ses_ghash, sizeof(GHASH_CTX));
-		free(ses->ses_ghash, M_CRYPTO_DATA, 0);
+		free(ses->ses_ghash, M_CRYPTO_DATA, sizeof(GHASH_CTX));
 	}
 
 	if (ses->ses_xts) {
 		explicit_bzero(ses->ses_xts, sizeof(struct aesni_xts_ctx));
-		free(ses->ses_xts, M_CRYPTO_DATA, 0);
+		free(ses->ses_xts, M_CRYPTO_DATA, sizeof(struct aesni_xts_ctx));
 	}
 
 	if (ses->ses_swd) {
@@ -364,13 +365,13 @@ aesni_freesession(u_int64_t tid)
 
 		if (swd->sw_ictx) {
 			explicit_bzero(swd->sw_ictx, axf->ctxsize);
-			free(swd->sw_ictx, M_CRYPTO_DATA, 0);
+			free(swd->sw_ictx, M_CRYPTO_DATA, axf->ctxsize);
 		}
 		if (swd->sw_octx) {
 			explicit_bzero(swd->sw_octx, axf->ctxsize);
-			free(swd->sw_octx, M_CRYPTO_DATA, 0);
+			free(swd->sw_octx, M_CRYPTO_DATA, axf->ctxsize);
 		}
-		free(swd, M_CRYPTO_DATA, 0);
+		free(swd, M_CRYPTO_DATA, sizeof(*swd));
 	}
 
 	explicit_bzero(ses, sizeof (*ses));
@@ -409,7 +410,7 @@ aesni_encdec(struct cryptop *crp, struct cryptodesc *crd,
 	if (crd->crd_len > aesni_sc->sc_buflen) {
 		if (buf != NULL) {
 			explicit_bzero(buf, aesni_sc->sc_buflen);
-			free(buf, M_DEVBUF, 0);
+			free(buf, M_DEVBUF, aesni_sc->sc_buflen);
 		}
 
 		aesni_sc->sc_buflen = 0;

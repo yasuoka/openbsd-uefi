@@ -1,4 +1,4 @@
-/*	$OpenBSD: if_bridge.c,v 1.258 2015/08/18 09:01:16 mpi Exp $	*/
+/*	$OpenBSD: if_bridge.c,v 1.260 2015/08/26 09:40:31 mpi Exp $	*/
 
 /*
  * Copyright (c) 1999, 2000 Jason L. Wright (jason@thought.net)
@@ -243,7 +243,6 @@ bridge_clone_destroy(struct ifnet *ifp)
 	struct bridge_softc *sc = ifp->if_softc;
 	struct bridge_iflist *bif;
 	struct ifih *bridge_ifih;
-	int s;
 
 	bridge_stop(sc);
 	bridge_rtflush(sc, IFBF_FLUSHALL);
@@ -253,10 +252,6 @@ bridge_clone_destroy(struct ifnet *ifp)
 		TAILQ_REMOVE(&sc->sc_spanlist, bif, next);
 		free(bif, M_DEVBUF, 0);
 	}
-
-	s = splnet();
-	LIST_REMOVE(sc, sc_list);
-	splx(s);
 
 	bstp_destroy(sc->sc_stp);
 
@@ -1542,7 +1537,7 @@ bridge_localbroadcast(struct bridge_softc *sc, struct ifnet *ifp,
 			return;
 	}
 
-	m1 = m_copym2(m, 0, M_COPYALL, M_DONTWAIT);
+	m1 = bridge_m_dup(m);
 	if (m1 == NULL) {
 		sc->sc_if.if_oerrors++;
 		return;

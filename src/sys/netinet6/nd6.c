@@ -1,4 +1,4 @@
-/*	$OpenBSD: nd6.c,v 1.145 2015/08/19 13:27:38 bluhm Exp $	*/
+/*	$OpenBSD: nd6.c,v 1.148 2015/08/24 23:26:43 mpi Exp $	*/
 /*	$KAME: nd6.c,v 1.280 2002/06/08 19:52:07 itojun Exp $	*/
 
 /*
@@ -719,6 +719,8 @@ int
 nd6_is_addr_neighbor(struct sockaddr_in6 *addr, struct ifnet *ifp)
 {
 	struct nd_prefix *pr;
+	struct in6_ifaddr *ia6;
+	struct ifaddr *ifa;
 	struct rtentry *rt;
 
 	/*
@@ -730,6 +732,22 @@ nd6_is_addr_neighbor(struct sockaddr_in6 *addr, struct ifnet *ifp)
 	if (IN6_IS_ADDR_LINKLOCAL(&addr->sin6_addr) &&
 	    ntohs(*(u_int16_t *)&addr->sin6_addr.s6_addr[2]) == ifp->if_index)
 		return (1);
+
+	TAILQ_FOREACH(ifa, &ifp->if_addrlist, ifa_list) {
+		if (ifa->ifa_addr->sa_family != AF_INET6)
+			continue;
+
+		ia6 = ifatoia6(ifa);
+
+		/* Prefix check down below. */
+		if (ia6->ia6_flags & IN6_IFF_AUTOCONF)
+			continue;
+
+		if (IN6_ARE_MASKED_ADDR_EQUAL(&addr->sin6_addr,
+		    &ia6->ia_addr.sin6_addr,
+		    &ia6->ia_prefixmask.sin6_addr))
+			return (1);
+	}
 
 	/*
 	 * If the address matches one of our on-link prefixes, it should be a
@@ -1834,9 +1852,7 @@ fill_drlist(void *oldp, size_t *oldlenp, size_t ol)
 			bzero(d, sizeof(*d));
 			d->rtaddr.sin6_family = AF_INET6;
 			d->rtaddr.sin6_len = sizeof(struct sockaddr_in6);
-			d->rtaddr.sin6_addr = dr->rtaddr;
-			in6_recoverscope(&d->rtaddr, &d->rtaddr.sin6_addr,
-			    dr->ifp);
+			in6_recoverscope(&d->rtaddr, &dr->rtaddr, dr->ifp);
 			d->flags = dr->flags;
 			d->rtlifetime = dr->rtlifetime;
 			d->expire = dr->expire;
@@ -1865,45 +1881,43 @@ fill_prlist(void *oldp, size_t *oldlenp, size_t ol)
 {
 	int error = 0, s;
 	struct nd_prefix *pr;
-	struct in6_prefix *p = NULL;
-	struct in6_prefix *pe = NULL;
+	char *p = NULL, *ps = NULL;
+	char *pe = NULL;
 	size_t l;
 
 	s = splsoftnet();
 
 	if (oldp) {
-		p = (struct in6_prefix *)oldp;
-		pe = (struct in6_prefix *)((caddr_t)oldp + *oldlenp);
+		ps = p = (char *)oldp;
+		pe = (char *)oldp + *oldlenp;
 	}
 	l = 0;
 
 	LIST_FOREACH(pr, &nd_prefix, ndpr_entry) {
 		u_short advrtrs;
-		size_t advance;
-		struct sockaddr_in6 *sin6;
-		struct sockaddr_in6 *s6;
+		struct sockaddr_in6 sin6;
 		struct nd_pfxrouter *pfr;
+		struct in6_prefix pfx;
 		char addr[INET6_ADDRSTRLEN];
 
-		if (oldp && p + 1 <= pe)
-		{
-			bzero(p, sizeof(*p));
-			sin6 = (struct sockaddr_in6 *)(p + 1);
+		if (oldp && p + sizeof(struct in6_prefix) <= pe) {
+			memset(&pfx, 0, sizeof(pfx));
+			ps = p;
 
-			p->prefix = pr->ndpr_prefix;
-			if (in6_recoverscope(&p->prefix,
-			    &p->prefix.sin6_addr, pr->ndpr_ifp) != 0)
+			pfx.prefix = pr->ndpr_prefix;
+			if (in6_recoverscope(&pfx.prefix,
+			    &pfx.prefix.sin6_addr, pr->ndpr_ifp) != 0)
 				log(LOG_ERR,
 				    "scope error in prefix list (%s)\n",
-				    inet_ntop(AF_INET6, &p->prefix.sin6_addr,
+				    inet_ntop(AF_INET6, &pfx.prefix.sin6_addr,
 					addr, sizeof(addr)));
-			p->raflags = pr->ndpr_raf;
-			p->prefixlen = pr->ndpr_plen;
-			p->vltime = pr->ndpr_vltime;
-			p->pltime = pr->ndpr_pltime;
-			p->if_index = pr->ndpr_ifp->if_index;
+			pfx.raflags = pr->ndpr_raf;
+			pfx.prefixlen = pr->ndpr_plen;
+			pfx.vltime = pr->ndpr_vltime;
+			pfx.pltime = pr->ndpr_pltime;
+			pfx.if_index = pr->ndpr_ifp->if_index;
 			if (pr->ndpr_vltime == ND6_INFINITE_LIFETIME)
-				p->expire = 0;
+				pfx.expire = 0;
 			else {
 				time_t maxexpire;
 
@@ -1912,40 +1926,44 @@ fill_prlist(void *oldp, size_t *oldlenp, size_t ol)
 				    ((sizeof(maxexpire) * 8) - 1));
 				if (pr->ndpr_vltime <
 				    maxexpire - pr->ndpr_lastupdate) {
-					p->expire = pr->ndpr_lastupdate +
+					pfx.expire = pr->ndpr_lastupdate +
 						pr->ndpr_vltime;
 				} else
-					p->expire = maxexpire;
+					pfx.expire = maxexpire;
 			}
-			p->refcnt = pr->ndpr_refcnt;
-			p->flags = pr->ndpr_stateflags;
-			p->origin = PR_ORIG_RA;
+			pfx.refcnt = pr->ndpr_refcnt;
+			pfx.flags = pr->ndpr_stateflags;
+			pfx.origin = PR_ORIG_RA;
+
+			p += sizeof(pfx); l += sizeof(pfx);
+
 			advrtrs = 0;
 			LIST_FOREACH(pfr, &pr->ndpr_advrtrs, pfr_entry) {
-				if ((void *)&sin6[advrtrs + 1] > (void *)pe) {
+				if (p + sizeof(sin6) > pe) {
 					advrtrs++;
 					continue;
 				}
-				s6 = &sin6[advrtrs];
-				s6->sin6_family = AF_INET6;
-				s6->sin6_len = sizeof(struct sockaddr_in6);
-				s6->sin6_addr = pfr->router->rtaddr;
-				in6_recoverscope(s6, &pfr->router->rtaddr,
+				bzero(&sin6, sizeof(sin6));
+				sin6.sin6_family = AF_INET6;
+				sin6.sin6_len = sizeof(struct sockaddr_in6);
+				in6_recoverscope(&sin6, &pfr->router->rtaddr,
 				    pfr->router->ifp);
 				advrtrs++;
+				memcpy(p, &sin6, sizeof(sin6));
+				p += sizeof(sin6);
+				l += sizeof(sin6);
 			}
-			p->advrtrs = advrtrs;
+			pfx.advrtrs = advrtrs;
+			memcpy(ps, &pfx, sizeof(pfx));
 		}
 		else {
+			l += sizeof(pfx);
 			advrtrs = 0;
-			LIST_FOREACH(pfr, &pr->ndpr_advrtrs, pfr_entry)
+			LIST_FOREACH(pfr, &pr->ndpr_advrtrs, pfr_entry) {
 				advrtrs++;
+				l += sizeof(sin6);
+			}
 		}
-
-		advance = sizeof(*p) + sizeof(*sin6) * advrtrs;
-		l += advance;
-		if (p)
-			p = (struct in6_prefix *)((caddr_t)p + advance);
 	}
 
 	if (oldp) {

@@ -1,4 +1,4 @@
-/*	$OpenBSD: tcp_input.c,v 1.299 2015/08/13 23:42:16 bluhm Exp $	*/
+/*	$OpenBSD: tcp_input.c,v 1.302 2015/08/27 20:56:16 bluhm Exp $	*/
 /*	$NetBSD: tcp_input.c,v 1.23 1996/02/13 23:43:44 christos Exp $	*/
 
 /*
@@ -3276,7 +3276,14 @@ tcp_mss_adv(struct ifnet *ifp, int af)
  * state for SYN_RECEIVED.
  */
 
-u_long	syn_cache_count;
+/* syn hash parameters */
+#define	TCP_SYN_HASH_SIZE	293
+#define	TCP_SYN_BUCKET_SIZE	35
+int	tcp_syn_cache_size = TCP_SYN_HASH_SIZE;
+int	tcp_syn_cache_limit = TCP_SYN_HASH_SIZE*TCP_SYN_BUCKET_SIZE;
+int	tcp_syn_bucket_limit = 3*TCP_SYN_BUCKET_SIZE;
+int	tcp_syn_cache_count;
+struct	syn_cache_head tcp_syn_cache[TCP_SYN_HASH_SIZE];
 u_int32_t syn_hash1, syn_hash2;
 
 #define SYN_HASH(sa, sp, dp) \
@@ -3324,7 +3331,7 @@ syn_cache_rm(struct syn_cache *sc)
 	LIST_REMOVE(sc, sc_tpq);
 	tcp_syn_cache[sc->sc_bucketidx].sch_length--;
 	timeout_del(&sc->sc_timer);
-	syn_cache_count--;
+	tcp_syn_cache_count--;
 }
 
 void
@@ -3370,6 +3377,7 @@ syn_cache_init()
 	/* Initialize the syn cache pool. */
 	pool_init(&syn_cache_pool, sizeof(struct syn_cache), 0, 0, 0,
 	    "syncache", NULL);
+	pool_setipl(&syn_cache_pool, IPL_SOFTNET);
 }
 
 void
@@ -3383,7 +3391,7 @@ syn_cache_insert(struct syn_cache *sc, struct tcpcb *tp)
 	 * If there are no entries in the hash table, reinitialize
 	 * the hash secrets.
 	 */
-	if (syn_cache_count == 0) {
+	if (tcp_syn_cache_count == 0) {
 		syn_hash1 = arc4random();
 		syn_hash2 = arc4random();
 	}
@@ -3414,7 +3422,7 @@ syn_cache_insert(struct syn_cache *sc, struct tcpcb *tp)
 #endif
 		syn_cache_rm(sc2);
 		syn_cache_put(sc2);
-	} else if (syn_cache_count >= tcp_syn_cache_limit) {
+	} else if (tcp_syn_cache_count >= tcp_syn_cache_limit) {
 		struct syn_cache_head *scp2, *sce;
 
 		tcpstat.tcps_sc_overflowed++;
@@ -3463,7 +3471,7 @@ syn_cache_insert(struct syn_cache *sc, struct tcpcb *tp)
 	/* Put it into the bucket. */
 	TAILQ_INSERT_TAIL(&scp->sch_bucket, sc, sc_bucketq);
 	scp->sch_length++;
-	syn_cache_count++;
+	tcp_syn_cache_count++;
 
 	tcpstat.tcps_sc_added++;
 	splx(s);
@@ -3521,11 +3529,8 @@ void
 syn_cache_reaper(void *arg)
 {
 	struct syn_cache *sc = arg;
-	int s;
 
-	s = splsoftnet();
 	pool_put(&syn_cache_pool, (sc));
-	splx(s);
 	return;
 }
 
@@ -3566,24 +3571,23 @@ syn_cache_lookup(struct sockaddr *src, struct sockaddr *dst,
 	struct syn_cache *sc;
 	struct syn_cache_head *scp;
 	u_int32_t hash;
-	int s;
+
+	splsoftassert(IPL_SOFTNET);
+
+	if (tcp_syn_cache_count == 0)
+		return (NULL);
 
 	SYN_HASHALL(hash, src, dst);
-
 	scp = &tcp_syn_cache[hash % tcp_syn_cache_size];
 	*headp = scp;
-	s = splsoftnet();
 	TAILQ_FOREACH(sc, &scp->sch_bucket, sc_bucketq) {
 		if (sc->sc_hash != hash)
 			continue;
 		if (!bcmp(&sc->sc_src, src, src->sa_len) &&
 		    !bcmp(&sc->sc_dst, dst, dst->sa_len) &&
-		    rtable_l2(rtableid) == rtable_l2(sc->sc_rtableid)) {
-			splx(s);
+		    rtable_l2(rtableid) == rtable_l2(sc->sc_rtableid))
 			return (sc);
-		}
 	}
-	splx(s);
 	return (NULL);
 }
 

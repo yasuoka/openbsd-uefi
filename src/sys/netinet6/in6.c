@@ -1,4 +1,4 @@
-/*	$OpenBSD: in6.c,v 1.165 2015/08/19 13:27:38 bluhm Exp $	*/
+/*	$OpenBSD: in6.c,v 1.168 2015/08/24 23:26:43 mpi Exp $	*/
 /*	$KAME: in6.c,v 1.372 2004/06/14 08:14:21 itojun Exp $	*/
 
 /*
@@ -462,17 +462,24 @@ in6_control(struct socket *so, u_long cmd, caddr_t data, struct ifnet *ifp)
 
 	case SIOCAIFADDR_IN6:
 	{
-		struct nd_prefix *pr;
 		int plen, error = 0;
 
 		/* reject read-only flags */
 		if ((ifra->ifra_flags & IN6_IFF_DUPLICATED) != 0 ||
 		    (ifra->ifra_flags & IN6_IFF_DETACHED) != 0 ||
-		    (ifra->ifra_flags & IN6_IFF_NODAD) != 0 ||
 		    (ifra->ifra_flags & IN6_IFF_DEPRECATED) != 0 ||
 		    (ifra->ifra_flags & IN6_IFF_AUTOCONF) != 0) {
 			return (EINVAL);
 		}
+
+		/*
+		 * Make the address tentative before joining multicast
+		 * addresses, so that corresponding MLD responses would
+		 * not have a tentative source address.
+		 */
+		if ((ia6 == NULL) && in6if_do_dad(ifp))
+			ifra->ifra_flags |= IN6_IFF_TENTATIVE;
+
 		/*
 		 * first, make or update the interface address structure,
 		 * and link it to the list. try to enable inet6 if there
@@ -497,39 +504,24 @@ in6_control(struct socket *so, u_long cmd, caddr_t data, struct ifnet *ifp)
 			break;
 		}
 
+		/* Perform DAD, if needed. */
+		if (ia6->ia6_flags & IN6_IFF_TENTATIVE)
+			nd6_dad_start(&ia6->ia_ifa);
+
 		plen = in6_mask2len(&ifra->ifra_prefixmask.sin6_addr, NULL);
 		if (plen == 128) {
 			dohooks(ifp->if_addrhooks, 0);
 			break;	/* we don't need to install a host route. */
 		}
 
-		/*
-		 * then, make the prefix on-link on the interface.
-		 * XXX: we'd rather create the prefix before the address, but
-		 * we need at least one address to install the corresponding
-		 * interface route, so we configure the address first.
-		 */
-		pr = nd6_prefix_add(ifp, &ifra->ifra_addr,
-		    &ifra->ifra_prefixmask, &ifra->ifra_lifetime,
-		    ((ifra->ifra_flags & IN6_IFF_AUTOCONF) != 0));
-		if (pr == NULL) {
-			log(LOG_ERR, "cannot add prefix\n");
-			return (EINVAL); /* XXX panic here? */
-		}
-
-		/* relate the address to the prefix */
-		if (ia6->ia6_ndpr == NULL) {
-			ia6->ia6_ndpr = pr;
-			pr->ndpr_refcnt++;
-		}
-
 		s = splsoftnet();
-		/*
-		 * this might affect the status of autoconfigured addresses,
-		 * that is, this address might make other addresses detached.
-		 */
-		pfxlist_onlink_check();
-
+		error = rt_ifa_add(&ia6->ia_ifa,
+		    RTF_UP|RTF_CLONING|RTF_CONNECTED, ia6->ia_ifa.ifa_addr);
+		if (error) {
+			in6_purgeaddr(&ia6->ia_ifa);
+			splx(s);
+			return (error);
+		}
 		dohooks(ifp->if_addrhooks, 0);
 		splx(s);
 		break;
@@ -753,15 +745,6 @@ in6_update_ifa(struct ifnet *ifp, struct in6_aliasreq *ifra,
 	 * configure address flags.
 	 */
 	ia6->ia6_flags = ifra->ifra_flags;
-	/*
-	 * Make the address tentative before joining multicast addresses,
-	 * so that corresponding MLD responses would not have a tentative
-	 * source address.
-	 */
-	ia6->ia6_flags &= ~IN6_IFF_DUPLICATED;	/* safety */
-	if (hostIsNew && in6if_do_dad(ifp) &&
-	    (ifra->ifra_flags & IN6_IFF_NODAD) == 0)
-		ia6->ia6_flags |= IN6_IFF_TENTATIVE;
 
 	/*
 	 * We are done if we have simply modified an existing address.
@@ -868,7 +851,7 @@ in6_update_ifa(struct ifnet *ifp, struct in6_aliasreq *ifra,
 		 * join interface-local all-nodes address.
 		 * (ff01::1%ifN, and ff01::%ifN/32)
 		 */
-		bzero(&mltaddr.sin6_addr, sizeof(mltaddr.sin6_addr));
+		bzero(&mltaddr, sizeof(mltaddr));
 		mltaddr.sin6_len = sizeof(struct sockaddr_in6);
 		mltaddr.sin6_family = AF_INET6;
 		mltaddr.sin6_addr = in6addr_intfacelocal_allnodes;
@@ -906,17 +889,6 @@ in6_update_ifa(struct ifnet *ifp, struct in6_aliasreq *ifra,
 		if (!imm)
 			goto cleanup;
 		LIST_INSERT_HEAD(&ia6->ia6_memberships, imm, i6mm_chain);
-	}
-
-	/*
-	 * Perform DAD, if needed.
-	 * XXX It may be of use, if we can administratively
-	 * disable DAD.
-	 */
-	if (hostIsNew && in6if_do_dad(ifp) &&
-	    (ifra->ifra_flags & IN6_IFF_NODAD) == 0)
-	{
-		nd6_dad_start(&ia6->ia_ifa, NULL);
 	}
 
 	return (error);
@@ -984,24 +956,19 @@ in6_purgeaddr(struct ifaddr *ifa)
 void
 in6_unlink_ifa(struct in6_ifaddr *ia6, struct ifnet *ifp)
 {
+	struct ifaddr *ifa = &ia6->ia_ifa;
+
 	splsoftassert(IPL_SOFTNET);
 
-	ifa_del(ifp, &ia6->ia_ifa);
+	ifa_del(ifp, ifa);
 
 	TAILQ_REMOVE(&in6_ifaddr, ia6, ia_list);
 
 	/* Release the reference to the base prefix. */
 	if (ia6->ia6_ndpr == NULL) {
-		char addr[INET6_ADDRSTRLEN];
-
-		if (!IN6_IS_ADDR_LINKLOCAL(IA6_IN6(ia6)) &&
-		    !IN6_IS_ADDR_LOOPBACK(IA6_IN6(ia6)) &&
-		    !IN6_ARE_ADDR_EQUAL(IA6_MASKIN6(ia6), &in6mask128))
-			log(LOG_NOTICE, "in6_unlink_ifa: interface address "
-			    "%s has no prefix\n",
-			    inet_ntop(AF_INET6, IA6_IN6(ia6), addr,
-				sizeof(addr)));
+		rt_ifa_del(ifa, RTF_CLONING | RTF_CONNECTED, ifa->ifa_addr);
 	} else {
+		KASSERT(ia6->ia6_flags & IN6_IFF_AUTOCONF);
 		ia6->ia6_flags &= ~IN6_IFF_AUTOCONF;
 		if (--ia6->ia6_ndpr->ndpr_refcnt == 0)
 			prelist_remove(ia6->ia6_ndpr);
@@ -1346,7 +1313,7 @@ in6_addmulti(struct in6_addr *maddr6, struct ifnet *ifp, int *errorp)
 		 * New address; allocate a new multicast record
 		 * and link it into the interface's multicast list.
 		 */
-		in6m = malloc(sizeof(*in6m), M_IPMADDR, M_NOWAIT);
+		in6m = malloc(sizeof(*in6m), M_IPMADDR, M_NOWAIT | M_ZERO);
 		if (in6m == NULL) {
 			*errorp = ENOBUFS;
 			return (NULL);

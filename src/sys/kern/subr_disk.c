@@ -1,4 +1,4 @@
-/*	$OpenBSD: subr_disk.c,v 1.188 2015/08/12 22:37:32 krw Exp $	*/
+/*	$OpenBSD: subr_disk.c,v 1.192 2015/08/28 22:42:05 krw Exp $	*/
 /*	$NetBSD: subr_disk.c,v 1.17 1996/03/16 23:17:08 christos Exp $	*/
 
 /*
@@ -306,7 +306,7 @@ readdoslabel(struct buf *bp, void (*strat)(struct buf *),
 	u_int64_t dospartoff = 0, dospartend = DL_GETBEND(lp);
 	int i, ourpart = -1, wander = 1, n = 0, loop = 0, offset;
 	struct dos_partition dp[NDOSPART], *dp2;
-	daddr_t part_blkno = DOSBBSECTOR;
+	u_int64_t sector = DOSBBSECTOR;
 	u_int32_t extoff = 0;
 	int error;
 
@@ -324,11 +324,11 @@ readdoslabel(struct buf *bp, void (*strat)(struct buf *),
 	while (wander && loop < DOS_MAXEBR) {
 		loop++;
 		wander = 0;
-		if (part_blkno < extoff)
-			part_blkno = extoff;
+		if (sector < extoff)
+			sector = extoff;
 
 		/* read MBR/EBR */
-		bp->b_blkno = DL_SECTOBLK(lp, part_blkno);
+		bp->b_blkno = DL_SECTOBLK(lp, sector);
 		bp->b_bcount = lp->d_secsize;
 		bp->b_error = 0; /* B_ERROR and b_error may have stale data. */
 		CLR(bp->b_flags, B_READ | B_WRITE | B_DONE | B_ERROR);
@@ -343,7 +343,7 @@ readdoslabel(struct buf *bp, void (*strat)(struct buf *),
 
 		bcopy(bp->b_data + DOSPARTOFF, dp, sizeof(dp));
 
-		if (n == 0 && part_blkno == DOSBBSECTOR) {
+		if (n == 0 && sector == DOSBBSECTOR) {
 			u_int16_t mbrtest;
 
 			/* Check the end of sector marker. */
@@ -368,7 +368,7 @@ readdoslabel(struct buf *bp, void (*strat)(struct buf *),
 			 * ESDI/ST506/RLL
 			 */
 			dp2 = &dp[ourpart];
-			dospartoff = letoh32(dp2->dp_start) + part_blkno;
+			dospartoff = letoh32(dp2->dp_start) + sector;
 			dospartend = dospartoff + letoh32(dp2->dp_size);
 
 			/*
@@ -432,10 +432,10 @@ donot:
 				break;
 			case DOSPTYP_EXTEND:
 			case DOSPTYP_EXTENDL:
-				part_blkno = letoh32(dp2->dp_start) + extoff;
+				sector = letoh32(dp2->dp_start) + extoff;
 				if (!extoff) {
 					extoff = letoh32(dp2->dp_start);
-					part_blkno = 0;
+					sector = 0;
 				}
 				wander = 1;
 				continue;
@@ -461,7 +461,7 @@ donot:
 			pp->p_fstype = fstype;
 			if (letoh32(dp2->dp_start))
 				DL_SETPOFFSET(pp,
-				    letoh32(dp2->dp_start) + part_blkno);
+				    letoh32(dp2->dp_start) + sector);
 			DL_SETPSIZE(pp, letoh32(dp2->dp_size));
 		}
 	}
@@ -471,7 +471,7 @@ notmbr:
 		/* Must not modify *lp when partoffp is set. */
 		lp->d_npartitions = MAXPARTITIONS;
 
-	if (n == 0 && part_blkno == DOSBBSECTOR && ourpart == -1) {
+	if (n == 0 && sector == DOSBBSECTOR && ourpart == -1) {
 		u_int16_t fattest;
 
 		/* Check for a valid initial jmp instruction. */
@@ -528,8 +528,6 @@ notfat:
 
 	bp->b_blkno = DL_BLKTOSEC(lp, DL_SECTOBLK(lp, dospartoff) +
 	    DOS_LABELSECTOR) * DL_BLKSPERSEC(lp);
-	offset = DL_BLKOFFSET(lp, DL_SECTOBLK(lp, dospartoff) +
-	    DOS_LABELSECTOR);
 	bp->b_bcount = lp->d_secsize;
 	bp->b_error = 0; /* B_ERROR and b_error may have stale data. */
 	CLR(bp->b_flags, B_READ | B_WRITE | B_DONE | B_ERROR);
@@ -538,6 +536,8 @@ notfat:
 	if (biowait(bp))
 		return (bp->b_error);
 
+	offset = DL_BLKOFFSET(lp, DL_SECTOBLK(lp, dospartoff) +
+	    DOS_LABELSECTOR);
 	error = checkdisklabel(bp->b_data + offset, lp,
 	    DL_GETBSTART((struct disklabel*)(bp->b_data+offset)),
 	    DL_GETBEND((struct disklabel *)(bp->b_data+offset)));
@@ -647,15 +647,12 @@ readgptlabel(struct buf *bp, void (*strat)(struct buf *),
 	if (lp->d_secsize == 0)
 		return (ENOSPC);	/* disk too small */
 
-	/*
-	 * XXX: We should not trust the primary header and instead
-	 * use the last LBA of the disk, as defined in the standard.
-	 */
-	for (part_blkno = GPTSECTOR; ; part_blkno = gh.gh_lba_alt,
-	    altheader = 1) {
+	for (part_blkno = DL_SECTOBLK(lp, GPTSECTOR); ;
+	    part_blkno = DL_SECTOBLK(lp, DL_GETDSIZE(lp)-1), altheader = 1) {
 		uint32_t ghsize;
 		uint32_t ghpartsize;
 		uint32_t ghpartnum;
+		uint32_t ghpartspersec;
 
 		/* read header record */
 		bp->b_blkno = DL_BLKTOSEC(lp, part_blkno) * DL_BLKSPERSEC(lp);
@@ -677,6 +674,7 @@ readgptlabel(struct buf *bp, void (*strat)(struct buf *),
 		bcopy(bp->b_data + offset, &gh, sizeof(gh));
 		ghsize = letoh32(gh.gh_size);
 		ghpartsize = letoh32(gh.gh_part_size);
+		ghpartspersec = lp->d_secsize / ghpartsize;
 		ghpartnum = letoh32(gh.gh_part_num);
 
 		if (letoh64(gh.gh_sig) != GPTSIGNATURE)
@@ -706,7 +704,7 @@ readgptlabel(struct buf *bp, void (*strat)(struct buf *),
 		 * Header size must be greater than or equal to 92 and less
 		 * than or equal to the logical block size.
 		 */
-		if (ghsize < GPTMINHDRSIZE || ghsize > DEV_BSIZE)
+		if (ghsize < GPTMINHDRSIZE || ghsize > lp->d_secsize)
 			return (EINVAL);
 
 		if (letoh64(gh.gh_lba_start) >= DL_GETDSIZE(lp) ||
@@ -718,33 +716,32 @@ readgptlabel(struct buf *bp, void (*strat)(struct buf *),
 		* Size per partition entry shall be 128*(2**n) with n >= 0.
 		* We don't support partition entries larger than block size.
 		*/
-		if (ghpartsize % GPTMINPARTSIZE
-		    || ghpartsize > DEV_BSIZE
-		    || GPT_PARTSPERSEC(&gh) == 0) {
+		if (ghpartsize % GPTMINPARTSIZE || ghpartsize > lp->d_secsize
+		    || ghpartspersec == 0) {
 			DPRINTF("invalid partition size\n");
 			return (EINVAL);
 		}
 
 		/* XXX: we don't support multiples of GPTMINPARTSIZE yet */
-		if (letoh32(gh.gh_part_size) != GPTMINPARTSIZE) {
+		if (ghpartsize != GPTMINPARTSIZE) {
 			DPRINTF("partition sizes larger than %d bytes are not "
 			    "supported", GPTMINPARTSIZE);
 			return (EINVAL);
 		}
 
 		/* read GPT partition entry array */
-		gp = mallocarray(ghpartnum, sizeof(struct gpt_partition), M_DEVBUF, M_NOWAIT|M_ZERO);
+		gp = mallocarray(ghpartnum, sizeof(struct gpt_partition),
+		    M_DEVBUF, M_NOWAIT|M_ZERO);
 		if (gp == NULL)
 			return (ENOMEM);
 		gpsz = ghpartnum * sizeof(struct gpt_partition);
 
 		/*
-		* XXX: Fails if # of partition entries is no multiple of
-		* GPT_PARTSPERSEC(&gh)
+		* XXX:	Fails if # of partition entries is not a multiple of
+		*	ghpartspersec.
 		*/
-		for (i = 0; i < ghpartnum / GPT_PARTSPERSEC(&gh);
-		     i++) {
-			part_blkno = letoh64(gh.gh_part_lba) + i;
+		for (i = 0; i < ghpartnum / ghpartspersec; i++) {
+			part_blkno = DL_SECTOBLK(lp, letoh64(gh.gh_part_lba)+i);
 			/* read partition record */
 			bp->b_blkno = DL_BLKTOSEC(lp, part_blkno) *
 			    DL_BLKSPERSEC(lp);
@@ -763,9 +760,8 @@ readgptlabel(struct buf *bp, void (*strat)(struct buf *),
 				return (error);
 			}
 
-			bcopy(bp->b_data + offset, gp +
-			    i * GPT_PARTSPERSEC(&gh), GPT_PARTSPERSEC(&gh) *
-			    sizeof(struct gpt_partition));
+			bcopy(bp->b_data + offset, gp + i * ghpartspersec,
+			    ghpartspersec * sizeof(struct gpt_partition));
 		}
 
 		if (gpt_chk_parts(&gh, gp)) {
@@ -851,8 +847,6 @@ readgptlabel(struct buf *bp, void (*strat)(struct buf *),
 
 	bp->b_blkno = DL_BLKTOSEC(lp, DL_SECTOBLK(lp, gptpartoff) +
 	    DOS_LABELSECTOR) * DL_BLKSPERSEC(lp);
-	offset = DL_BLKOFFSET(lp, DL_SECTOBLK(lp, gptpartoff) +
-	    DOS_LABELSECTOR);
 	bp->b_bcount = lp->d_secsize;
 	bp->b_error = 0; /* B_ERROR and b_error may have stale data. */
 	CLR(bp->b_flags, B_READ | B_WRITE | B_DONE | B_ERROR);
@@ -861,6 +855,8 @@ readgptlabel(struct buf *bp, void (*strat)(struct buf *),
 	if (biowait(bp))
 		return (bp->b_error);
 
+	offset = DL_BLKOFFSET(lp, DL_SECTOBLK(lp, gptpartoff) +
+	    DOS_LABELSECTOR);
 	error = checkdisklabel(bp->b_data + offset, lp,
 	    DL_GETBSTART((struct disklabel*)(bp->b_data+offset)),
 	    DL_GETBEND((struct disklabel *)(bp->b_data+offset)));
@@ -927,6 +923,12 @@ setdisklabel(struct disklabel *olp, struct disklabel *nlp, u_int openmask)
 		} while (dk != NULL &&
 		    memcmp(nlp->d_uid, &uid, sizeof(nlp->d_uid)) == 0);
 	}
+
+	/* Preserve the disk size and RAW_PART values. */
+	DL_SETDSIZE(nlp, DL_GETDSIZE(olp));
+	npp = &nlp->d_partitions[RAW_PART];
+	DL_SETPOFFSET(npp, 0);
+	DL_SETPSIZE(npp, DL_GETDSIZE(nlp));
 
 	nlp->d_checksum = 0;
 	nlp->d_checksum = dkcksum(nlp);

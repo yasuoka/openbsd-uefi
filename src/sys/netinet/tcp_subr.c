@@ -1,4 +1,4 @@
-/*	$OpenBSD: tcp_subr.c,v 1.144 2015/07/16 16:12:15 mpi Exp $	*/
+/*	$OpenBSD: tcp_subr.c,v 1.146 2015/08/27 20:56:16 bluhm Exp $	*/
 /*	$NetBSD: tcp_subr.c,v 1.22 1996/02/13 23:44:00 christos Exp $	*/
 
 /*
@@ -119,14 +119,6 @@ u_int32_t	tcp_now = 1;
 #ifndef TCB_INITIAL_HASH_SIZE
 #define	TCB_INITIAL_HASH_SIZE	128
 #endif
-
-/* syn hash parameters */
-#define	TCP_SYN_HASH_SIZE	293
-#define	TCP_SYN_BUCKET_SIZE	35
-int	tcp_syn_cache_size = TCP_SYN_HASH_SIZE;
-int	tcp_syn_cache_limit = TCP_SYN_HASH_SIZE*TCP_SYN_BUCKET_SIZE;
-int	tcp_syn_bucket_limit = 3*TCP_SYN_BUCKET_SIZE;
-struct	syn_cache_head tcp_syn_cache[TCP_SYN_HASH_SIZE];
 
 int tcp_reass_limit = NMBCLUSTERS / 2; /* hardlimit for tcpqe_pool */
 #ifdef TCP_SACK
@@ -731,10 +723,9 @@ tcp6_ctlinput(int cmd, struct sockaddr *sa, u_int rdomain, void *d)
 			    SEQ_GEQ(seq, tp->snd_una) &&
 			    SEQ_LT(seq, tp->snd_max))
 				notify(inp, inet6ctlerrmap[cmd]);
-		} else if (syn_cache_count &&
-		    (inet6ctlerrmap[cmd] == EHOSTUNREACH ||
-		     inet6ctlerrmap[cmd] == ENETUNREACH ||
-		     inet6ctlerrmap[cmd] == EHOSTDOWN))
+		} else if (inet6ctlerrmap[cmd] == EHOSTUNREACH ||
+		    inet6ctlerrmap[cmd] == ENETUNREACH ||
+		    inet6ctlerrmap[cmd] == EHOSTDOWN)
 			syn_cache_unreach((struct sockaddr *)sa6_src,
 			    sa, &th, rdomain);
 	} else {
@@ -849,10 +840,9 @@ tcp_ctlinput(int cmd, struct sockaddr *sa, u_int rdomain, void *v)
 			    SEQ_GEQ(seq, tp->snd_una) &&
 			    SEQ_LT(seq, tp->snd_max))
 				notify(inp, errno);
-		} else if (syn_cache_count &&
-		    (inetctlerrmap[cmd] == EHOSTUNREACH ||
-		     inetctlerrmap[cmd] == ENETUNREACH ||
-		     inetctlerrmap[cmd] == EHOSTDOWN)) {
+		} else if (inetctlerrmap[cmd] == EHOSTUNREACH ||
+		    inetctlerrmap[cmd] == ENETUNREACH ||
+		    inetctlerrmap[cmd] == EHOSTDOWN) {
 			struct sockaddr_in sin;
 
 			bzero(&sin, sizeof(sin));
