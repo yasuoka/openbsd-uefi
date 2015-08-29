@@ -13,7 +13,7 @@ Current Status
 How to play
 -----------
 
-- Use OpenBSD/amd64
+- Use OpenBSD/amd64 -current (the latest objcopy is required)
 
 Compile "efiboot.efi":
 
