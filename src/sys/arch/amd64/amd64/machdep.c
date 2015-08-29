@@ -1805,6 +1805,7 @@ getbootinfo(char *bootinfo, int bootinfo_size)
 	bios_ddb_t *bios_ddb;
 	bios_bootduid_t *bios_bootduid;
 	bios_bootsr_t *bios_bootsr;
+	int docninit = 0;
 
 #undef BOOTINFO_DEBUG
 #ifdef BOOTINFO_DEBUG
@@ -1862,7 +1863,7 @@ getbootinfo(char *bootinfo, int bootinfo_size)
 					comconsiot = X86_BUS_SPACE_IO;
 
 					/* Probe the serial port this time. */
-					cninit();
+					docninit++;
 				}
 #endif
 #ifdef BOOTINFO_DEBUG
@@ -1900,6 +1901,8 @@ getbootinfo(char *bootinfo, int bootinfo_size)
 
 		case BOOTARG_EFIINFO:
 			bios_efiinfo = (bios_efiinfo_t *)q->ba_arg;
+			if (bios_efiinfo->fb_addr != 0)
+				docninit++;
 			break;
 
 		default:
@@ -1910,6 +1913,8 @@ getbootinfo(char *bootinfo, int bootinfo_size)
 			break;
 		}
 	}
+	if (docninit > 0)
+		cninit();
 #ifdef BOOTINFO_DEBUG
 	printf("\n");
 #endif
