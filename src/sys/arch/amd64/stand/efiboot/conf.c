@@ -47,7 +47,7 @@ void (*sa_cleanup)(void) = NULL;
 
 
 void (*i386_probe1[])(void) = {
-	efi_memprobe
+	cninit, efi_memprobe
 };
 void (*i386_probe2[])(void) = {
 	efi_diskprobe, diskprobe

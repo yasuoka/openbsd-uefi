@@ -382,8 +382,11 @@ efi_video_bestmode(void)
 }
 
 void
-efi_cons_probe(struct consdev *cp)
+efi_cons_probe(struct consdev *cn)
 {
+	cn->cn_pri = CN_MIDPRI;
+	cn->cn_dev = makedev(12, 0);
+	printf(" pc%d", minor(cn->cn_dev));
 }
 
 void
@@ -443,7 +446,7 @@ efi_cons_getshifts(dev_t dev)
 
 /* XXX: serial console is not supporte yet */
 int comspeed = 9600;
-int com_addr;
+int com_addr = -1;
 int com_speed = -1;
 
 /***********************************************************************
