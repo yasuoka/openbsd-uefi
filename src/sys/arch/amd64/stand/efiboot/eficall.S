@@ -28,24 +28,30 @@
  */
 ENTRY(efi_call)
 	push	%rbp
-	push	%rbx
 	mov	%rsp, %rbp
 
 	xchg	%rcx, %rdx
 	mov	%rcx, %rax
 	mov	%rdi, %rcx
 
-	mov	%rdi, %rbx
-	add	$2, %rbx	/* nargs - 2 + 4 */
-	shl	$3, %rbx
-	sub	%rbx, %rsp
+	/*
+	 * set "nargs - 2 + 4 + 1" (= %rdi + 3) for next call stack size.
+	 * (nargs - 2) is for arguments in stack, +4 for shadow registers
+	 * and +1 for alignment
+	 */
+	add	$3, %rdi
 
+	shl	$3, %rdi	/* 64-bit word */
+	sub	%rdi, %rsp	/* get the stack */
+	and	$(-0x10), %rsp	/* align 16 bytes */
+
+	/* copy args */
 	sub	$3, %rcx
 	cmp	$1, %rcx
 	jle	2f
 
-1:	/* copy the arg[n-1] .. arg[4] */
-	mov	0x10(%rbp, %rcx, 8), %rdi
+1:	/* loop arg[n-1] .. arg[4] */
+	mov	0x8(%rbp, %rcx, 8), %rdi
 	mov	%rdi, 0x18(%rsp, %rcx, 8)
 	loopnz	1b
 2:
@@ -53,7 +59,6 @@ ENTRY(efi_call)
 
 	call	*%rsi
 
-	add	%rbx, %rsp
-	pop	%rbx
+	mov	%rbp, %rsp
 	pop	%rbp
 	retq
