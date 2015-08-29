@@ -28,36 +28,32 @@
  */
 ENTRY(efi_call)
 	push	%rbp
+	push	%rbx
 	mov	%rsp, %rbp
 
+	xchg	%rcx, %rdx
 	mov	%rcx, %rax
 	mov	%rdi, %rcx
 
-	add	$4, %rdi	/* %rdi = nargs -2 + 4 + 1 + 1 */
-	/* -2 for registers, +4 for shadow, +1 for %rbx and +1 for align */
-
-	shl	$3, %rdi
-	sub	%rdi, %rsp
-	and	$(-0x10), %rsp	/* align 16 bytes */
-	mov	%rbx, -0x8(%rbp)
-	mov	%rbp, %rbx
-	sub	%rsp, %rbx
+	mov	%rdi, %rbx
+	add	$2, %rbx	/* nargs - 2 + 4 */
+	shl	$3, %rbx
+	sub	%rbx, %rsp
 
 	sub	$3, %rcx
 	cmp	$1, %rcx
 	jle	2f
 
 1:	/* copy the arg[n-1] .. arg[4] */
-	mov	0x8(%rbp, %rcx, 8), %rdi
+	mov	0x10(%rbp, %rcx, 8), %rdi
 	mov	%rdi, 0x18(%rsp, %rcx, 8)
 	loopnz	1b
 2:
-	mov	%rdx, %rcx
-	mov	%rax, %rdx
+	mov	%rax, %rcx
 
 	call	*%rsi
 
 	add	%rbx, %rsp
-	mov	-0x8(%rbp), %rbx
+	pop	%rbx
 	pop	%rbp
 	retq
