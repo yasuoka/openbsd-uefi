@@ -288,9 +288,10 @@ eif_memprobe_internal(void)
 				break;
 			}
 		}
-		if (bm->type == BIOS_MAP_END)
+		if (bm->type == BIOS_MAP_END) {
 			*bm = bm0;
-		(++bm)->type = BIOS_MAP_END;
+			(++bm)->type = BIOS_MAP_END;
+		}
 	}
 	for (bm = bios_memmap; bm->type != BIOS_MAP_END; bm++) {
 		if (bm->addr < 0x0a0000)	/* Below memory hole */
