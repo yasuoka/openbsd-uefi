@@ -55,6 +55,8 @@ start:
 	lea	(start32a - start)(%rdi), %rax
 	movl	%eax, (start32r - start)(%rdi)
 
+	cli
+
 	/* Setup GDT */
 	lea	(gdt - start)(%rdi), %rax
 	mov	%rax, (gdtrr - start)(%rdi)
@@ -78,14 +80,8 @@ start32a:
 
 	/* Disable Paging in CR0 */
 	movl	%cr0, %eax
-	andl	$(~(CR0_PG|CR0_PE)), %eax
+	andl	$(~CR0_PG), %eax
 	movl	%eax, %cr0
-
-	/* Disable long mode in EFER */
-	movl	MSR_EFER, %ecx
-	rdmsr
-	andl	$(~EFER_LME), %eax
-	wrmsr
 
 	/* Disable PAE in CR4 */
 	movl	%cr4, %eax
