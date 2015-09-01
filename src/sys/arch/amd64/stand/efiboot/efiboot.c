@@ -464,6 +464,12 @@ efi_makebootargs(void)
 
 	memset(&ei, 0, sizeof(ei));
 	/*
+	 * SystemTable, ImageHandle
+	 */
+	ei.systab = (uint64_t)ST;
+	ei.image = (uint64_t)IH;
+
+	/*
 	 * ACPI, BIOS configuration table
 	 */
 	for (i = 0; i < ST->NumberOfTableEntries; i++) {
