@@ -51,7 +51,6 @@ static void	 efi_heap_init(void);
 static void	 eif_memprobe_internal(void);
 static void	 efi_video_init(void);
 static void	 efi_video_reset(void);
-static void	 efi_video_bestmode(void) __unused;
 EFI_STATUS	 efi_main(EFI_HANDLE, EFI_SYSTEM_TABLE *);
 
 void (*run_i386)(u_long, u_long, int, int, int, int, int, int, int, int)
@@ -74,7 +73,7 @@ efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *systab)
 	efi_video_init();
 	efi_heap_init();
 
-	status = EFI_CALL(BS->HandleProtocol,image, &imgdp_guid, (void **)&dp0);
+	status = EFI_CALL(BS->HandleProtocol, image, &imgdp_guid, (void **)&dp0);
 	if (status == EFI_SUCCESS) {
 		for (dp = dp0; !IsDevicePathEnd(dp);
 		    dp = NextDevicePathNode(dp)) {
@@ -309,9 +308,9 @@ eif_memprobe_internal(void)
  ***********************************************************************/
 static SIMPLE_TEXT_OUTPUT_INTERFACE     *conout = NULL;
 static SIMPLE_INPUT_INTERFACE           *conin;
-static EFI_GUID				 ConsoleControlGUID
+static EFI_GUID				 con_guid
 					    = EFI_CONSOLE_CONTROL_PROTOCOL_GUID;
-static EFI_GUID				 GraphicsOutputGUID
+static EFI_GUID				 gop_guid
 					    = EFI_GRAPHICS_OUTPUT_PROTOCOL_GUID;
 struct efi_video {
 	int	cols;
@@ -321,16 +320,16 @@ struct efi_video {
 static void
 efi_video_init(void)
 {
-	EFI_CONSOLE_CONTROL_PROTOCOL	*ConsoleControl = NULL;
+	EFI_CONSOLE_CONTROL_PROTOCOL	*conctrl = NULL;
 	int				 i, mode80x25, mode100x31;
 	UINTN				 cols, rows;
 	EFI_STATUS			 status;
 
 	conout = ST->ConOut;
-	status = EFI_CALL(BS->LocateProtocol, &ConsoleControlGUID, NULL,
-	    (void **)&ConsoleControl);
+	status = EFI_CALL(BS->LocateProtocol, &con_guid, NULL,
+	    (void **)&conctrl);
         if (status == EFI_SUCCESS)
-		(void)EFI_CALL(ConsoleControl->SetMode, ConsoleControl,
+		(void)EFI_CALL(conctrl->SetMode, conctrl,
 		    EfiConsoleControlScreenText);
         mode80x25 = -1;
         mode100x31 = -1;
@@ -362,24 +361,6 @@ efi_video_reset(void)
 	EFI_CALL(conout->SetAttribute, conout,
 	    EFI_TEXT_ATTR(EFI_LIGHTGRAY, EFI_BLACK));
 	EFI_CALL(conout->ClearScreen, conout);
-}
-
-static void
-efi_video_bestmode(void)
-{
-	int		 i, bestmode = -1, best = 0;
-
-	for (i = 0; i < nitems(efi_video); i++) {
-		if (efi_video[i].cols == 0)
-			break;
-		if (best < efi_video[i].cols * efi_video[i].rows) {
-			best = efi_video[i].cols * efi_video[i].rows;
-			bestmode = i;
-		}
-	}
-	if (bestmode > 0)
-                EFI_CALL(conout->SetMode, conout, bestmode);
-	efi_video_reset();
 }
 
 void
@@ -466,13 +447,16 @@ static EFI_GUID smbios_guid = SMBIOS_TABLE_GUID;
 void
 efi_makebootargs(void)
 {
-	int		 i;
-	EFI_STATUS	 status;
-	EFI_GRAPHICS_OUTPUT
-			*gop;
+	int			 i;
+	EFI_STATUS		 status;
+	EFI_GRAPHICS_OUTPUT	*gop;
 	EFI_GRAPHICS_OUTPUT_MODE_INFORMATION
-			*gopi;
-	bios_efiinfo_t	 ei;
+				*gopi;
+	bios_efiinfo_t		 ei;
+	int			 bestmode = -1;
+	UINTN			 sz, gopsiz, bestsiz = 0;
+	EFI_GRAPHICS_OUTPUT_MODE_INFORMATION
+				*info;
 
 	memset(&ei, 0, sizeof(ei));
 	/*
@@ -492,10 +476,26 @@ efi_makebootargs(void)
 	/*
 	 * Frame buffer
 	 */
-	status = EFI_CALL(BS->LocateProtocol, &GraphicsOutputGUID, NULL,
+	status = EFI_CALL(BS->LocateProtocol, &gop_guid, NULL,
 	    (void **)&gop);
 	if (!EFI_ERROR(status)) {
-		efi_video_bestmode();
+		for (i = 0; ; i++) {
+			status = EFI_CALL(gop->QueryMode, gop, i, &sz, &info);
+			if (EFI_ERROR(status))
+				break;
+			gopsiz = info->HorizontalResolution *
+			    info->VerticalResolution;
+			if (gopsiz > bestsiz) {
+				bestmode = i;
+				bestsiz = gopsiz;
+			}
+		}
+		if (bestmode >= 0) {
+			status = EFI_CALL(gop->SetMode, gop, bestmode);
+			if (EFI_ERROR(status))
+				panic("GOP setmode failed(%d)", status);
+		}
+
 		gopi = gop->Mode->Info;
 		switch (gopi->PixelFormat) {
 		case PixelBlueGreenRedReserved8BitPerColor:
