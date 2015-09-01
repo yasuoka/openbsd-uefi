@@ -48,7 +48,7 @@ static EFI_GUID		 imgdp_guid = { 0xbc62157e, 0x3e33, 0x4fec,
 			  { 0x99, 0x20, 0x2d, 0x3b, 0x36, 0xd7, 0x50, 0xdf }};
 
 static void	 efi_heap_init(void);
-static void	 eif_memprobe_internal(void);
+static void	 efi_memprobe_internal(void);
 static void	 efi_video_init(void);
 static void	 efi_video_reset(void);
 EFI_STATUS	 efi_main(EFI_HANDLE, EFI_SYSTEM_TABLE *);
@@ -110,7 +110,7 @@ efi_cleanup(void)
 {
 	EFI_STATUS	 status;
 
-	eif_memprobe_internal();	/* sync the current map */
+	efi_memprobe_internal();	/* sync the current map */
 	status = EFI_CALL(BS->ExitBootServices, IH, mmap_key);
 	if (status != EFI_SUCCESS)
 		panic("ExitBootServices");
@@ -209,7 +209,7 @@ efi_memprobe(void)
 	bios_memmap_t	*bm;
 
 	printf(" mem[");
-	eif_memprobe_internal();
+	efi_memprobe_internal();
 	for (bm = bios_memmap; bm->type != BIOS_MAP_END; bm++) {
 		if (bm->type == BIOS_MAP_FREE && bm->size > 12 * 1024) {
 			if (n++ != 0)
@@ -224,7 +224,7 @@ efi_memprobe(void)
 }
 
 static void
-eif_memprobe_internal(void)
+efi_memprobe_internal(void)
 {
 	EFI_STATUS		 status;
 	UINTN			 mapkey, mmsiz, siz;
