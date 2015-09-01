@@ -462,8 +462,8 @@ efi_makebootargs(void)
 	/*
 	 * SystemTable, ImageHandle
 	 */
-	ei.systab = (uint64_t)ST;
-	ei.image = (uint64_t)IH;
+	ei.systab = (intptr_t)ST;
+	ei.image = (intptr_t)IH;
 
 	/*
 	 * ACPI, BIOS configuration table
