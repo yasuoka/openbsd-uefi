@@ -1,61 +1,6 @@
 UEFI boot for OpenBSD
 =====================
 
-Experimental.
+**uefi boot works here had been merged into the OpenBSD repository**
 
-
-Current Status
---------------
-
-- Boot complete on VAIO Z VJZ13A1D
-
-
-How to play
------------
-
-- Use OpenBSD/amd64 -current (the latest objcopy is required)
-
-Compile "efiboot.efi":
-
-    % cd sys/arch/amd64/stand/efiboot
-    % make
-
-Compile "kernel":
-
-    % cd sys/arch/amd64/conf
-    % config GENERIC.MP
-    % cd ../compile/GENERIC.MP
-    % make
-
-Install:
-
-- Copy efiboot.efi as /BOOT/EFI/BOOTX64.EFI on first active partition on
-  first disk
-- Copy the compiled kernel to somewhere on a OpenBSD partition
-
-Boot:
-
-- OpenBSD boot(8) will start
-
-Other commands added to boot(8):
-
-    machine video ..... show available video mode
-    machine video # ... change the current video mode
-    machine exit ...... exit EFI BOOT, then next EFI boot will start
-
-X11:
-
-- Currently only works with framebuffer if the machine don't have a VGA.
-- Patch xenocara-wsfb.diff to xenocra
-- Use xorg.conf to use wsfb.
-
-GPT:
-
-- Compile src/sbin/gdisk
-- Try gdisk(8)
-
-TODO
-----
-
-- Support serial console, CDROM and floppy disk.
-- Test other machines than VAIO
+This repository is not the latest version any more.
