@@ -192,8 +192,6 @@ typedef struct _bios_bootsr {
 
 #define	BOOTARG_EFIINFO 11
 typedef struct _bios_efiinfo {
-	uint64_t	systab;
-	uint64_t	image;
 	uint64_t	config_acpi;
 	uint64_t	config_smbios;
 	uint64_t	fb_addr;
@@ -205,6 +203,8 @@ typedef struct _bios_efiinfo {
 	uint32_t	fb_green_mask;
 	uint32_t	fb_blue_mask;
 	uint32_t	fb_reserved_mask;
+	uint64_t	systab;
+	uint64_t	image;
 } __packed bios_efiinfo_t;
 
 #if defined(_KERNEL) || defined (_STANDALONE)
